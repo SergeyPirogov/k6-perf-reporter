@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Pre-commit hook to run linter
+# Install: cp .githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+echo "🔍 Running ESLint..."
+npm run lint
+
+if [ $? -ne 0 ]; then
+  echo "❌ ESLint failed. Commit aborted."
+  echo "📝 Fix errors and try again:"
+  echo "  npm run lint"
+  exit 1
+fi
+
+echo "✅ Linting passed"

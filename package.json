@@ -3,14 +3,29 @@
   "version": "1.0.0",
   "description": "Reporting tool for k6 performance tests with InfluxDB 2 integration",
   "main": "dist/index.js",
+  "bin": {
+    "k6-perf-reporter": "dist/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SergeyPirogov/k6-perf-reporter.git"
+  },
+  "keywords": ["k6", "performance", "testing", "influxdb", "reporting", "cli"],
+  "author": "Sergey Pirogov",
+  "license": "MIT",
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "report": "tsx src/cli.ts",
-    "report:example": "INFLUX_TOKEN='JFP9pZu3Sp134rkCZ6gT7FtSBmQRWgl8VmVhFMHTXrbkhKQ3LrvrM4FXECR7Lr8MsDGWLIsU7IJFcjL_QHwvqA==' tsx src/cli.ts generate --scenario storefront_main_page --start-time '2026-04-02T21:17:28.487Z' --end-time '2026-04-02T21:22:02.858Z' --format cli",
+    "report:example": "tsx src/cli.ts generate --run-id '961989' -st '-5h' --format cli",
+    "report:markdown": "tsx src/cli.ts generate --format markdown",
+    "report:ai": "tsx src/cli.ts generate --ai",
     "lint": "eslint src",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "postinstall": "bash scripts/setup-hooks.sh 2>/dev/null || true"
   },
   "dependencies": {
     "@influxdata/influxdb-client": "^1.33.2",
@@ -25,6 +40,12 @@
     "@typescript-eslint/parser": "^6.17.0",
     "eslint": "^8.56.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
+  },
+  "files": ["dist"],
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
+

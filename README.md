@@ -1,247 +1,159 @@
 # k6-perf-reporter
 
-A comprehensive reporting tool for k6 performance tests with InfluxDB 2 integration. Generates beautiful HTML, PDF, CSV, and JSON reports with key performance metrics.
+A comprehensive CLI tool for generating performance test reports from k6 tests stored in InfluxDB 2. Outputs in multiple formats including JSON, CLI, and Markdown with AI-friendly structured output.
 
 ## Features
 
-- **Multiple Report Formats**: HTML, PDF, CSV, JSON, and CLI output
+- **Multiple Report Formats**: JSON, CLI (pretty tables), Markdown, and more
+- **AI-Friendly Output**: `--ai` flag for machine-readable structured JSON
 - **InfluxDB 2 Integration**: Query test metrics directly from InfluxDB
-- **Key Metrics**: Response time percentiles (p50, p95, p99), throughput, error rates, and error breakdown
-- **Professional Reports**: Beautiful, interactive HTML reports with responsive design
-- **CLI Tool**: Command-line interface for automated report generation
-- **Library Support**: Use as a TypeScript/JavaScript library in your own tools
+- **Key Metrics**: Response time percentiles (p50, p95, p99), throughput, error rates, detailed request/endpoint summaries
+- **CLI Tool**: Command-line interface with global installation support
+- **Claude Code Integration**: Shell integration for easy usage in Claude Code
+- **Automated Releases**: GitHub Actions for npm publishing
+- **Status Tracking**: 1% error rate threshold with pass/fail status
 
 ## Quick Start
 
+### Installation
+
 ```bash
-# Install dependencies
-npm install
+# Global installation (recommended)
+npm install -g k6-perf-reporter
 
-# Build the project
-npm run build
+# Or use directly with npx
+npx k6-perf-reporter generate --scenario test -st -1h -e now() --format cli
+```
 
-# Generate an HTML report
-npx tsx src/cli.ts generate \
+### Basic Usage
+
+```bash
+k6-perf-reporter generate \
   --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format html
-```
-
-## Installation
-
-```bash
-npm install
-npm run build
-```
-
-## Usage
-
-### As a CLI Tool
-
-#### HTML Report
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format html
-```
-
-Generates a beautiful, interactive HTML report with:
-- Color-coded performance metric cards
-- Responsive design that works on all devices
-- Executive summary section
-- Detailed error breakdown table
-- Professional styling with gradient headers
-
-#### PDF Report
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format pdf
-```
-
-Creates a printable PDF version of the HTML report for archival and sharing.
-
-#### CSV Report
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format csv
-```
-
-Exports metrics in CSV format for import into Excel, Google Sheets, or data analysis tools.
-
-Example CSV output:
-```
-k6 Performance Test Report
-Test Name,api-load-test
-Generated,2024-01-01T12:00:00Z
-
-RESPONSE TIME METRICS
-Metric,Value (ms)
-P50,125.45
-P95,385.67
-P99,892.34
-
-THROUGHPUT & REQUESTS
-Metric,Value
-Throughput (req/s),156.23
-Total Requests,10000
-Successful Requests,9950
-Failed Requests,50
-Error Rate (%),0.50
-
-ERROR BREAKDOWN
-Error Type,Count
-ConnectionError,30
-TimeoutError,15
-HTTPError500,5
-```
-
-#### JSON Report
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format json
-```
-
-Generates machine-readable JSON for programmatic access:
-```json
-{
-  "testName": "api-load-test",
-  "generatedAt": "2024-01-01T12:00:00Z",
-  "metrics": {
-    "responseTime": {
-      "p50": 125.45,
-      "p95": 385.67,
-      "p99": 892.34
-    },
-    "throughput": {
-      "requestsPerSecond": 156.23
-    },
-    "requests": {
-      "total": 10000,
-      "successful": 9950,
-      "failed": 50,
-      "errorRate": 0.50
-    },
-    "errors": {
-      "ConnectionError": 30,
-      "TimeoutError": 15,
-      "HTTPError500": 5
-    }
-  }
-}
-```
-
-#### CLI Output
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
+  --start-time "-1h" \
+  --end-time "now()" \
   --format cli
 ```
 
-Displays a pretty-printed table in your terminal:
+## Report Formats
+
+### CLI Output (Terminal Display)
+```bash
+k6-perf-reporter generate \
+  --scenario api-load-test \
+  --start-time "-1h" \
+  --end-time "now()" \
+  --format cli
+```
+
+Displays formatted tables in your terminal:
 ```
 ━━━ k6 Performance Test Report ━━━
 
 Test: api-load-test
-Generated: 1/1/2024, 12:00:00 PM
+Generated: 4/7/2026, 3:45:00 PM
+
+📋 Summary
+┌──────────────────┬────────────┐
+│ Total Requests   │ 10,000     │
+│ Successful       │ 9,955      │
+│ Failed           │ 45         │
+│ Error Rate       │ 0.0045%    │
+└──────────────────┴────────────┘
 
 📊 Response Times
 ┌────────┬───────────┐
-│ Metric │ Value     │
-├────────┼───────────┤
 │ P50    │ 125.45 ms │
 │ P95    │ 385.67 ms │
 │ P99    │ 892.34 ms │
 └────────┴───────────┘
 
-⚡ Throughput & Requests
-┌──────────────────────┬──────────┐
-│ Metric               │ Value    │
-├──────────────────────┼──────────┤
-│ Throughput           │ 156.23 req/s │
-│ Total Requests       │ 10000    │
-│ Successful Requests  │ 9950     │
-│ Failed Requests      │ 50       │
-└──────────────────────┴──────────┘
-
-❌ Error Analysis
-┌────────────┬─────────┐
-│ Metric     │ Value   │
-├────────────┼─────────┤
-│ Error Rate │ 0.50 %  │
-└────────────┴─────────┘
-
 Overall Status: ✓ PASS
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Error Rate: 0.0045% (threshold: < 1%)
 ```
 
-### As a Library
-
-```typescript
-import {
-  InfluxQueryClient,
-  ReportGenerator,
-  CLIReporter,
-} from "k6-perf-reporter";
-
-const influxConfig = {
-  url: "http://localhost:8086",
-  token: "your-token",
-  org: "your-org",
-  bucket: "k6",
-};
-
-const influxClient = new InfluxQueryClient(influxConfig);
-const reportGenerator = new ReportGenerator(influxClient);
-
-// Generate metrics for the last hour
-const metrics = await reportGenerator.generateMetrics(
-  "api-load-test",
-  "-1h",
-  "now()"
-);
-
-// Print to CLI
-const cliReporter = new CLIReporter();
-cliReporter.printMetricsTable(metrics, "api-load-test");
-
-// Or generate formatted reports
-const htmlReport = reportGenerator.generateHTMLReport(metrics, "api-load-test");
-const jsonReport = reportGenerator.generateJSONReport(metrics, "api-load-test");
-const csvReport = reportGenerator.generateCSVReport(metrics, "api-load-test");
-
-// Save to file
-import fs from "fs";
-fs.writeFileSync("report.html", htmlReport);
-fs.writeFileSync("report.json", jsonReport);
-fs.writeFileSync("report.csv", csvReport);
+### JSON Report (Machine-Readable)
+```bash
+k6-perf-reporter generate \
+  --scenario api-load-test \
+  --start-time "-1h" \
+  --end-time "now()" \
+  --format json \
+  --out report.json
 ```
 
-## Metrics Included
+Generates structured JSON with top-level status and summary for easy parsing:
+```json
+{
+  "testName": "api-load-test",
+  "status": "PASS",
+  "summary": {
+    "result": "PASS",
+    "errorRate": 0.45,
+    "errorRateThreshold": 1,
+    "passed": true,
+    "totalRequests": 10000,
+    "successfulRequests": 9955,
+    "failedRequests": 45
+  },
+  "metrics": {
+    "responseTime": { "p50": 125.45, "p95": 385.67, "p99": 892.34 },
+    "requests": { "total": 10000, "successful": 9955, "failed": 45, "errorRate": 0.45 },
+    "requestsSummary": { ... },
+    "errorRequestsDetailedSummary": [ ... ]
+  }
+}
+```
 
-- **Response Times**: p50, p95, p99 percentiles (milliseconds)
-- **Throughput**: Requests per second
-- **Requests**: Total, successful, and failed counts
-- **Error Rate**: Percentage of failed requests
-- **Error Breakdown**: Distribution of error types with counts
+### Markdown Report (Documentation)
+```bash
+k6-perf-reporter generate \
+  --scenario api-load-test \
+  --start-time "-1h" \
+  --end-time "now()" \
+  --format markdown \
+  --out report.md
+```
 
-## Time Format Examples
+Generates GitHub-flavored markdown with formatted tables, perfect for documentation and version control.
 
-For InfluxDB time queries, use relative or absolute formats:
+### AI-Friendly Output
+```bash
+k6-perf-reporter generate \
+  --scenario api-load-test \
+  --start-time "-1h" \
+  --end-time "now()" \
+  --ai
+```
+
+Outputs structured JSON without verbose logs, optimized for AI parsing and scripting.
+
+## Usage Examples
+
+### Configuration
+
+Create a `.config.json` file to avoid passing options repeatedly:
+
+```json
+{
+  "influx": {
+    "url": "http://localhost:8086",
+    "token": "your-influx-token",
+    "org": "your-org",
+    "bucket": "k6"
+  }
+}
+```
+
+Then use simplified commands:
+```bash
+k6-perf-reporter generate \
+  --scenario api-load-test \
+  --start-time "-1h" \
+  --end-time "now()"
+```
+
+### Time Format Options
 
 ```bash
 # Last hour
@@ -251,11 +163,83 @@ For InfluxDB time queries, use relative or absolute formats:
 --start-time "-24h" --end-time "now()"
 
 # Specific date range (ISO 8601)
---start-time "2024-01-01T00:00:00Z" --end-time "2024-01-02T00:00:00Z"
+--start-time "2026-01-01T00:00:00Z" --end-time "2026-01-02T00:00:00Z"
 
 # Last 30 minutes
 --start-time "-30m" --end-time "now()"
 ```
+
+### CLI Options
+
+```
+k6-perf-reporter generate [OPTIONS]
+
+Required Options:
+  -s, --scenario <name>       k6 scenario name
+  -st, --start-time <time>    Start time (ISO 8601 or relative like "-1h")
+  -e, --end-time <time>       End time (ISO 8601 or relative like "now()")
+
+Optional Options:
+  -f, --format <format>       Report format: json, cli, markdown (default: cli)
+  -c, --config <path>         Path to config file (default: .config.json)
+  --out <path>                Output file path (auto-generated if not specified)
+  --ai                        Output machine-readable JSON for AI integration
+  -u, --url <url>             InfluxDB URL (overrides config)
+  -t, --token <token>         InfluxDB token (overrides config)
+  -o, --org <organization>    InfluxDB organization (overrides config)
+  -b, --bucket <bucket>       InfluxDB bucket (overrides config)
+```
+
+## Claude Code Integration
+
+Use k6-perf-reporter directly in Claude Code with the `!` prefix:
+
+```bash
+! k6-perf-reporter generate --scenario test -st -1h -e now() --ai | jq '.summary'
+```
+
+### Quick Commands
+
+**Check latest test results:**
+```bash
+! k6-perf-reporter generate --scenario api-test -st -1h -e now() --ai | jq '.summary'
+```
+
+**Extract specific metrics:**
+```bash
+! k6-perf-reporter generate --scenario api-test -st -1h -e now() --ai | jq '.metrics.responseTime.p95'
+```
+
+**Check if test passed:**
+```bash
+! k6-perf-reporter generate --scenario api-test -st -1h -e now() --ai | jq '.summary.passed'
+```
+
+For detailed integration guide, see [CLAUDE_CODE_INTEGRATION.md](./CLAUDE_CODE_INTEGRATION.md)
+
+## Metrics Included
+
+- **Response Times**: p50, p95, p99 percentiles
+- **Throughput**: Requests per second
+- **Requests Summary**: Per-endpoint breakdown with method, count, success/fail rates, and response time stats
+- **Error Analysis**: Detailed error requests summary with status codes and response times
+- **Iteration Metrics**: Duration percentiles
+- **Concurrency**: VUs, pod count, dropped iterations
+- **Checks**: k6 check pass/fail rates
+- **Data Transfer**: Bytes sent/received and rates
+
+## Release Process
+
+Releases are automated via GitHub Actions. To create a release:
+
+```bash
+npm version patch     # Updates version and creates tag
+git push origin main --tags
+```
+
+GitHub Actions will automatically build, test, and publish to npm.
+
+For detailed release instructions, see [RELEASE.md](./RELEASE.md)
 
 ## Environment Variables
 
@@ -267,25 +251,6 @@ export INFLUX_TOKEN=your-influx-token
 export INFLUX_ORG=your-org
 export INFLUX_BUCKET=k6
 ```
-
-Then use:
-```bash
-npx tsx src/cli.ts generate \
-  --url $INFLUX_URL \
-  --token $INFLUX_TOKEN \
-  --org $INFLUX_ORG \
-  --bucket $INFLUX_BUCKET \
-  --test-name api-load-test \
-  --start-time "-1h" \
-  --end-time "now()" \
-  --format html
-```
-
-## Prerequisites
-
-- Node.js 16+
-- InfluxDB 2.x with k6 test data
-- For PDF generation: Puppeteer (included in dependencies)
 
 ## InfluxDB Setup
 
@@ -316,129 +281,48 @@ export default function () {
 Run with InfluxDB output:
 ```bash
 k6 run script.js \
-  -o xk6-influxdb=http://localhost:8086/testdata \
+  -o xk6-influxdb=http://localhost:8086/k6 \
   --tag testName=api-load-test
 ```
 
-## Full Example Workflow
-
-1. **Run your k6 test with InfluxDB output:**
-```bash
-k6 run load-test.js \
-  -o xk6-influxdb=http://localhost:8086/k6db \
-  --tag testName=checkout-flow-test
-```
-
-2. **Wait for test to complete, then generate reports:**
-```bash
-# Generate HTML report
-npx tsx src/cli.ts generate \
-  --url http://localhost:8086 \
-  --token your-token \
-  --org your-org \
-  --bucket k6db \
-  --test-name checkout-flow-test \
-  --start-time "-30m" \
-  --end-time "now()" \
-  --format html \
-  --output reports/checkout-flow-test.html
-
-# Generate JSON for CI/CD integration
-npx tsx src/cli.ts generate \
-  --url http://localhost:8086 \
-  --token your-token \
-  --org your-org \
-  --bucket k6db \
-  --test-name checkout-flow-test \
-  --start-time "-30m" \
-  --end-time "now()" \
-  --format json \
-  --output reports/checkout-flow-test.json
-
-# Generate CSV for spreadsheet analysis
-npx tsx src/cli.ts generate \
-  --url http://localhost:8086 \
-  --token your-token \
-  --org your-org \
-  --bucket k6db \
-  --test-name checkout-flow-test \
-  --start-time "-30m" \
-  --end-time "now()" \
-  --format csv \
-  --output reports/checkout-flow-test.csv
-
-# Print summary to terminal
-npx tsx src/cli.ts generate \
-  --url http://localhost:8086 \
-  --token your-token \
-  --org your-org \
-  --bucket k6db \
-  --test-name checkout-flow-test \
-  --start-time "-30m" \
-  --end-time "now()" \
-  --format cli
-```
-
-3. **Integrate with CI/CD:**
-```bash
-#!/bin/bash
-# ci-report.sh
-
-TEST_NAME="production-api-test"
-START_TIME="-1h"
-END_TIME="now()"
-
-# Generate report
-npx tsx src/cli.ts generate \
-  --url $INFLUX_URL \
-  --token $INFLUX_TOKEN \
-  --org $INFLUX_ORG \
-  --bucket $INFLUX_BUCKET \
-  --scenario $TEST_NAME \
-  --start-time $START_TIME \
-  --end-time $END_TIME \
-  --format json \
-  --output test-results.json
-
-# Parse and check thresholds
-ERROR_RATE=$(jq '.metrics.requests.errorRate' test-results.json)
-if (( $(echo "$ERROR_RATE > 5.0" | bc -l) )); then
-  echo "Error rate too high: $ERROR_RATE%"
-  exit 1
-fi
-
-echo "Test passed! Error rate: $ERROR_RATE%"
-```
-
-## Development
+## npm Scripts
 
 ```bash
-# Install dependencies
-npm install
-
-# Type checking
-npm run type-check
-
-# Linting
-npm run lint
-
-# Build
-npm run build
-
-# Development mode
-npm run dev
+npm run dev              # Run development mode
+npm run build            # Build TypeScript to JavaScript
+npm run start            # Run built CLI
+npm run report           # Run CLI in development
+npm run report:example   # Run example report (CLI format)
+npm run report:markdown  # Run example report (Markdown format)
+npm run report:ai        # Run example report (AI-friendly JSON)
+npm run lint             # Run ESLint
+npm run type-check       # Run TypeScript type checking
 ```
 
-## Architecture
+## Prerequisites
+
+- Node.js 16+
+- InfluxDB 2.x with k6 test data
+
+## Project Structure
 
 ```
 src/
-├── influx.ts          # InfluxDB client and query logic
-├── reports.ts         # Report generation (HTML, CSV, JSON)
-├── cli-reporter.ts    # CLI table formatting
-├── cli.ts             # Command-line interface
-└── index.ts           # Library exports
+├── cli.ts                    # CLI entry point with --ai flag support
+├── config.ts                 # Configuration loader
+├── influx.ts                 # InfluxDB query client
+├── metrics-collector.ts      # Metrics aggregation
+├── reporters/
+│   ├── cli.ts               # Terminal table formatter
+│   ├── json.ts              # JSON reporter with status/summary
+│   └── markdown.ts          # Markdown reporter
+└── index.ts                 # Library exports
 ```
+
+## Documentation
+
+- [CLAUDE_CODE_INTEGRATION.md](./CLAUDE_CODE_INTEGRATION.md) - Claude Code shell integration guide
+- [RELEASE.md](./RELEASE.md) - Release process and GitHub Actions setup
 
 ## License
 

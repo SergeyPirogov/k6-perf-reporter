@@ -1,0 +1,15 @@
+node_modules/
+src/
+.config.json
+.env
+.env.local
+.eslintrc.json
+tsconfig.json
+.git
+.gitignore
+.npmignore
+README.md
+*.md
+.DS_Store
+npm-debug.log
+yarn-error.log

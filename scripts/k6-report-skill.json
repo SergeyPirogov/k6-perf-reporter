@@ -1,0 +1,78 @@
+{
+  "name": "k6-report",
+  "version": "1.0.0",
+  "description": "Generate k6 performance test reports from InfluxDB",
+  "usage": "/k6-report --scenario <name> [options]",
+  "author": "k6-perf-reporter",
+  "license": "MIT",
+  "commands": [
+    {
+      "trigger": "k6-report",
+      "script": "scripts/k6-report-skill.sh",
+      "description": "Generate k6 performance test report"
+    }
+  ],
+  "options": {
+    "-s, --scenario": {
+      "type": "string",
+      "required": true,
+      "description": "k6 scenario name"
+    },
+    "-st, --start-time": {
+      "type": "string",
+      "default": "-1h",
+      "description": "Start time (ISO 8601 or relative like '-1h')"
+    },
+    "-e, --end-time": {
+      "type": "string",
+      "default": "now()",
+      "description": "End time (ISO 8601 or relative like 'now()')"
+    },
+    "-f, --format": {
+      "type": "choice",
+      "choices": ["cli", "json", "markdown"],
+      "default": "cli",
+      "description": "Report format"
+    },
+    "--ai": {
+      "type": "boolean",
+      "description": "Output machine-readable JSON for AI integration"
+    },
+    "-o, --out": {
+      "type": "string",
+      "description": "Output file path (auto-generated if not specified)"
+    }
+  },
+  "examples": [
+    {
+      "title": "Generate CLI report for last hour",
+      "command": "/k6-report --scenario api-test"
+    },
+    {
+      "title": "Generate AI-friendly JSON",
+      "command": "/k6-report --scenario api-test --ai"
+    },
+    {
+      "title": "Generate markdown report",
+      "command": "/k6-report --scenario api-test --format markdown --out report.md"
+    },
+    {
+      "title": "Specific time range",
+      "command": "/k6-report --scenario api-test --start-time '2026-04-07T00:00:00Z' --end-time '2026-04-07T23:59:59Z'"
+    }
+  ],
+  "requirements": {
+    "cli": "k6-perf-reporter",
+    "minimum_version": "1.0.0",
+    "optional_config": ".config.json (for InfluxDB settings)"
+  },
+  "installation": {
+    "method": "npm",
+    "command": "npm install -g k6-perf-reporter"
+  },
+  "documentation": {
+    "guide": "CLAUDE_CODE_INTEGRATION.md",
+    "releases": "RELEASE.md",
+    "samples": "COMPREHENSIVE_REPORT.md"
+  }
+}
