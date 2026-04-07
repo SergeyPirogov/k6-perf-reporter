@@ -1,0 +1,30 @@
+{
+  "name": "k6-perf-reporter",
+  "version": "1.0.0",
+  "description": "Reporting tool for k6 performance tests with InfluxDB 2 integration",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "report": "tsx src/cli.ts",
+    "report:example": "INFLUX_TOKEN='JFP9pZu3Sp134rkCZ6gT7FtSBmQRWgl8VmVhFMHTXrbkhKQ3LrvrM4FXECR7Lr8MsDGWLIsU7IJFcjL_QHwvqA==' tsx src/cli.ts generate --scenario storefront_main_page --start-time '2026-04-02T21:17:28.487Z' --end-time '2026-04-02T21:22:02.858Z' --format cli",
+    "lint": "eslint src",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@influxdata/influxdb-client": "^1.33.2",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "puppeteer": "^21.6.1",
+    "table": "^6.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0",
+    "eslint": "^8.56.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
