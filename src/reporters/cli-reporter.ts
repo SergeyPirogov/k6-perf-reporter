@@ -136,7 +136,7 @@ export class CliReporter {
         const tableData = [
           ["Method", "URL", "Status", "Error"],
           ...responses.map((r) => {
-            let error = r.error || "";
+            const error = r.error || "";
             // Extract path only from URL
             let url = r.url;
             try {
