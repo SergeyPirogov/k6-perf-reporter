@@ -126,6 +126,31 @@ export class CliReporter {
         console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" }, 6: { alignment: "left" } } }));
       }
     }
+
+    if (reportData.errorResponsesText) {
+      const errorResponsesText = reportData.errorResponsesText as Record<string, unknown>;
+      const responses = errorResponsesText.responses as Array<{ url: string; method: string; status: number; error: string }>;
+      if (responses && responses.length > 0) {
+        console.log("\nError Responses:");
+        console.log("");
+        const tableData = [
+          ["Method", "URL", "Status", "Error"],
+          ...responses.map((r) => {
+            let error = r.error || "";
+            // Extract path only from URL
+            let url = r.url;
+            try {
+              const urlObj = new URL(url);
+              url = urlObj.pathname;
+            } catch {
+              // If not a full URL, use as-is
+            }
+            return [r.method, url, String(r.status), error];
+          }),
+        ];
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" } } }));
+      }
+    }
   }
 
   private padRight(label: string, width: number): string {

@@ -35,6 +35,7 @@ export class DataCollector {
     const topSlowUrls = await this.extractor.extractTopSlowUrls(runId, startTime, endTime);
     const errorRequests = await this.extractor.extractErrorRequests(runId, startTime, endTime);
     const successRequests = await this.extractor.extractSuccessRequests(runId, startTime, endTime);
+    const errorResponsesText = await this.extractor.extractErrorResponsesText(runId, startTime, endTime);
 
     const reportData = {
       ...(typeof data === "object" && data !== null ? data : {}),
@@ -51,6 +52,7 @@ export class DataCollector {
       topSlowUrls,
       errorRequests,
       successRequests,
+      errorResponsesText,
     };
 
     return {

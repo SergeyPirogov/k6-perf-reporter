@@ -113,6 +113,17 @@ export interface SuccessRequestsMetric {
   requests: SuccessRequestMetric[];
 }
 
+export interface ErrorResponseMetric {
+  url: string;
+  method: string;
+  status: number;
+  error: string;
+}
+
+export interface ErrorResponsesTextMetric {
+  responses: ErrorResponseMetric[];
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -678,5 +689,34 @@ export class InfluxDataExtractor {
       .sort((a, b) => b.count - a.count);
 
     return { requests: topRequests };
+  }
+
+  async extractErrorResponsesText(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<ErrorResponsesTextMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "error_responses" and r.runId == "${runId}")
+        |> keep(columns: ["endpoint", "method", "status", "err"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { responses: [] };
+    }
+
+    // Map to error response format
+    const responses = results.map((r) => ({
+      url: r.endpoint as string,
+      method: r.method as string,
+      status: r.status as number,
+      error: String(r.err || ""),
+    }));
+
+    return { responses };
   }
 }
