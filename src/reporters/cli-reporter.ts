@@ -106,10 +106,10 @@ export class CliReporter {
         console.log("\nTop Error Requests:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "Code", "Count", "p(95) ms"],
-          ...errors.map((e) => [e.method, e.url, String(e.status), String(e.count), this.formatDuration(e.p95Duration)]),
+          ["Method", "URL", "Code", "Count"],
+          ...errors.map((e) => [e.method, e.url, String(e.status), String(e.count)]),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" } } }));
       }
     }
 
