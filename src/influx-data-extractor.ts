@@ -81,6 +81,7 @@ export interface TopSlowUrlMetric {
   method: string;
   url: string;
   p95Duration: number;
+  rps: number;
 }
 
 export interface TopSlowUrlsMetric {
@@ -93,6 +94,7 @@ export interface ErrorRequestMetric {
   status: number;
   p95Duration: number;
   count: number;
+  rps: number;
 }
 
 export interface ErrorRequestsMetric {
@@ -107,6 +109,7 @@ export interface SuccessRequestMetric {
   min: number;
   avg: number;
   p95: number;
+  rps: number;
 }
 
 export interface SuccessRequestsMetric {
@@ -521,8 +524,32 @@ export class InfluxDataExtractor {
       return { urls: [] };
     }
 
+    // Get test duration for RPS calculation
+    const durationQuery = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r.runId == "${runId}")
+        |> keep(columns: ["_time"])
+        |> sort(columns: ["_time"])
+    `;
+
+    const durationResults = await this.client.queryData(durationQuery);
+    let testDurationSeconds = 1;
+
+    if (durationResults && durationResults.length >= 2) {
+      const timeValues = durationResults
+        .map((r) => r._time)
+        .filter((t) => t !== null && t !== undefined) as string[];
+
+      if (timeValues.length >= 2) {
+        const startTimeMs = new Date(timeValues[0]).getTime();
+        const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
+        testDurationSeconds = Math.max(1, (endTimeMs - startTimeMs) / 1000);
+      }
+    }
+
     // Group by URL and method, calculate p95 duration
-    const urlMap = new Map<string, { durations: number[]; method: string }>();
+    const urlMap = new Map<string, { durations: number[]; method: string; count: number }>();
 
     results.forEach((r) => {
       const url = r.url as string;
@@ -531,9 +558,11 @@ export class InfluxDataExtractor {
 
       const key = `${method} ${url}`;
       if (!urlMap.has(key)) {
-        urlMap.set(key, { durations: [], method });
+        urlMap.set(key, { durations: [], method, count: 0 });
       }
-      urlMap.get(key)!.durations.push(duration);
+      const entry = urlMap.get(key)!;
+      entry.durations.push(duration);
+      entry.count++;
     });
 
     // Calculate p95 for each URL and sort
@@ -542,7 +571,8 @@ export class InfluxDataExtractor {
         const sorted = data.durations.sort((a, b) => a - b);
         const p95Duration = percentile(sorted, 95);
         const [method, url] = key.split(" ");
-        return { method, url, p95Duration };
+        const rps = data.count / testDurationSeconds;
+        return { method, url, p95Duration, rps };
       })
       .sort((a, b) => b.p95Duration - a.p95Duration)
       .slice(0, 10);
@@ -566,6 +596,30 @@ export class InfluxDataExtractor {
 
     if (!results || results.length === 0) {
       return { errors: [] };
+    }
+
+    // Get test duration for RPS calculation
+    const durationQuery = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r.runId == "${runId}")
+        |> keep(columns: ["_time"])
+        |> sort(columns: ["_time"])
+    `;
+
+    const durationResults = await this.client.queryData(durationQuery);
+    let testDurationSeconds = 1;
+
+    if (durationResults && durationResults.length >= 2) {
+      const timeValues = durationResults
+        .map((r) => r._time)
+        .filter((t) => t !== null && t !== undefined) as string[];
+
+      if (timeValues.length >= 2) {
+        const startTimeMs = new Date(timeValues[0]).getTime();
+        const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
+        testDurationSeconds = Math.max(1, (endTimeMs - startTimeMs) / 1000);
+      }
     }
 
     // Filter only error responses (status > 400)
@@ -602,7 +656,8 @@ export class InfluxDataExtractor {
         const sorted = data.durations.sort((a, b) => a - b);
         const p95Duration = percentile(sorted, 95);
         const [method, url] = key.split(" ").slice(0, 2).join(" ").split(" ");
-        return { method, url, status: data.status, p95Duration, count: data.count };
+        const rps = data.count / testDurationSeconds;
+        return { method, url, status: data.status, p95Duration, count: data.count, rps };
       })
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
@@ -628,6 +683,30 @@ export class InfluxDataExtractor {
       return { requests: [] };
     }
 
+    // Get test duration for RPS calculation
+    const durationQuery = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r.runId == "${runId}")
+        |> keep(columns: ["_time"])
+        |> sort(columns: ["_time"])
+    `;
+
+    const durationResults = await this.client.queryData(durationQuery);
+    let testDurationSeconds = 1;
+
+    if (durationResults && durationResults.length >= 2) {
+      const timeValues = durationResults
+        .map((r) => r._time)
+        .filter((t) => t !== null && t !== undefined) as string[];
+
+      if (timeValues.length >= 2) {
+        const startTimeMs = new Date(timeValues[0]).getTime();
+        const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
+        testDurationSeconds = Math.max(1, (endTimeMs - startTimeMs) / 1000);
+      }
+    }
+
     // Filter only successful responses (status < 400)
     const successResults = results.filter((r) => {
       const status = r.status as number;
@@ -639,21 +718,21 @@ export class InfluxDataExtractor {
     }
 
     // Get duration data for successful requests
-    const durationQuery = `
+    const durationQuerySuccess = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
         |> filter(fn: (r) => r._measurement == "http_req_duration" and r.runId == "${runId}")
         |> keep(columns: ["_value", "url", "method", "status"])
     `;
 
-    const durationResults = await this.client.queryData(durationQuery);
+    const durationResultsSuccess = await this.client.queryData(durationQuerySuccess);
 
-    if (!durationResults || durationResults.length === 0) {
+    if (!durationResultsSuccess || durationResultsSuccess.length === 0) {
       return { requests: [] };
     }
 
     // Filter only successful durations (status < 400)
-    const successDurations = durationResults.filter((r) => {
+    const successDurations = durationResultsSuccess.filter((r) => {
       const status = r.status as number;
       return status < 400;
     });
@@ -684,7 +763,8 @@ export class InfluxDataExtractor {
         const avg = data.durations.reduce((sum, val) => sum + val, 0) / data.durations.length;
         const p95 = percentile(sorted, 95);
         const [method, url] = key.split(" ").slice(0, 2).join(" ").split(" ");
-        return { method, url, status: data.status, count: data.count, min, avg, p95 };
+        const rps = data.count / testDurationSeconds;
+        return { method, url, status: data.status, count: data.count, min, avg, p95, rps };
       })
       .sort((a, b) => b.count - a.count);
 
