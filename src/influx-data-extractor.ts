@@ -87,6 +87,18 @@ export interface TopSlowUrlsMetric {
   urls: TopSlowUrlMetric[];
 }
 
+export interface ErrorRequestMetric {
+  method: string;
+  url: string;
+  status: number;
+  p95Duration: number;
+  count: number;
+}
+
+export interface ErrorRequestsMetric {
+  errors: ErrorRequestMetric[];
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -511,5 +523,65 @@ export class InfluxDataExtractor {
       .slice(0, 10);
 
     return { urls: topUrls };
+  }
+
+  async extractErrorRequests(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<ErrorRequestsMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_reqs" and r.runId == "${runId}")
+        |> keep(columns: ["_value", "url", "method", "status"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { errors: [] };
+    }
+
+    // Filter only error responses (status > 400)
+    const errorResults = results.filter((r) => {
+      const status = r.status as number;
+      return status > 400;
+    });
+
+    if (errorResults.length === 0) {
+      return { errors: [] };
+    }
+
+    // Group by URL, method, and status
+    const errorMap = new Map<string, { durations: number[]; method: string; status: number; count: number }>();
+
+    errorResults.forEach((r) => {
+      const url = r.url as string;
+      const method = r.method as string;
+      const status = r.status as number;
+      const duration = typeof r._value === "string" ? parseFloat(r._value) : (r._value as number) || 0;
+
+      const key = `${method} ${url} ${status}`;
+      if (!errorMap.has(key)) {
+        errorMap.set(key, { durations: [], method, status, count: 0 });
+      }
+      const entry = errorMap.get(key)!;
+      entry.durations.push(duration);
+      entry.count++;
+    });
+
+    // Calculate p95 for each error endpoint and sort by count (descending)
+    const topErrors = Array.from(errorMap.entries())
+      .map(([key, data]) => {
+        const sorted = data.durations.sort((a, b) => a - b);
+        const p95Duration = percentile(sorted, 95);
+        const [method, url] = key.split(" ").slice(0, 2).join(" ").split(" ");
+        return { method, url, status: data.status, p95Duration, count: data.count };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return { errors: topErrors };
   }
 }
