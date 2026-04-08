@@ -1,5 +1,7 @@
 import { program } from "commander";
 import { Config } from "./config";
+import { DataCollector } from "./data-collector";
+import { JsonReporter } from "./reporters";
 
 function main(): void {
   program
@@ -17,7 +19,16 @@ function main(): void {
     .action(async (options) => {
       try {
         const config = Config.getInstance(options.config).getConfig();
-        console.log("Config loaded:", config);
+        const collector = new DataCollector(config);
+        const reporter = new JsonReporter();
+
+        const report = collector.collect(
+          options.runId,
+          options.startTime || "-1h",
+          options.endTime || "now()"
+        );
+
+        reporter.report(report);
       } catch (error) {
         console.error("Error:", error instanceof Error ? error.message : error);
         process.exit(1);
