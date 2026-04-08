@@ -8,7 +8,8 @@ export class CliReporter {
   }
 
   private printHeader(data: ReporterResponse): void {
-    console.log(`\nRun ID: ${data.runId}`);
+    console.log("\n---");
+    console.log(`Run ID: ${data.runId}`);
     console.log(`Start: ${data.startTime}`);
     console.log(`End: ${data.endTime}\n`);
   }
@@ -21,7 +22,7 @@ export class CliReporter {
       const passRate = typeof checks.passRate === "number" ? checks.passRate : 0;
       const checkmark = passRate === 100 ? "✓" : "✗";
       console.log(
-        `checks${this.padRight("checks", 30)}: ${chalk.cyan(passRate.toFixed(2) + "%")} ${checkmark} ${chalk.cyan(String(checks.passes))} ${checkmark === "✗" ? "✗ " + chalk.red(String(checks.fails || 0)) : ""}`
+        `checks${this.padRight("checks", 30)}: ${chalk.cyan(passRate.toFixed(2) + "%")} ${checkmark} ${chalk.cyan(String(checks.passes))} ${checkmark === "✗" ? "✗ " + chalk.cyan(String(checks.fails || 0)) : ""}`
       );
     }
 
@@ -36,16 +37,15 @@ export class CliReporter {
       const failed = reportData.httpReqFailed as Record<string, number>;
       const failureRate = typeof failed.failureRate === "number" ? failed.failureRate : 0;
       const checkmark = failureRate === 0 ? "✓" : "✗";
-      const failColor = failureRate === 0 ? chalk.cyan : chalk.red;
       console.log(
-        `http_req_failed${this.padRight("http_req_failed", 30)}: ${failColor(failureRate.toFixed(2) + "%")} ${checkmark} ${failColor(String(failed.failed || 0))} ✗ ${chalk.cyan(String(failed.total || 0))}`
+        `http_req_failed${this.padRight("http_req_failed", 30)}: ${chalk.cyan(failureRate.toFixed(2) + "%")} ${checkmark} ${chalk.cyan(String(failed.failed || 0))} ✗ ${chalk.cyan(String(failed.total || 0))}`
       );
     }
 
     if (reportData.errorResponses) {
       const errorResponses = reportData.errorResponses as Record<string, number>;
       console.log(
-        `error_responses${this.padRight("error_responses", 30)}: ${chalk.red(String(errorResponses.count))} ${chalk.gray(errorResponses.rate.toFixed(6) + "/s")}`
+        `error_responses${this.padRight("error_responses", 30)}: ${chalk.cyan(String(errorResponses.count))} ${chalk.gray(errorResponses.rate.toFixed(6) + "/s")}`
       );
     }
 
