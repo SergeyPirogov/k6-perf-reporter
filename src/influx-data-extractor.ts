@@ -1,6 +1,20 @@
 import { InfluxClient } from "./influx-client";
 import { InfluxConfig } from "./config";
 
+const percentile = (values: number[], p: number): number => {
+  if (values.length === 0) return 0;
+  const index = (p / 100) * (values.length - 1);
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  const weight = index - lower;
+
+  if (lower === upper) {
+    return values[lower];
+  }
+
+  return values[lower] * (1 - weight) + values[upper] * weight;
+};
+
 export interface HttpReqsMetric {
   total: number;
   rate: number;
@@ -38,6 +52,24 @@ export interface HttpReqFailedMetric {
   total: number;
   failed: number;
   failureRate: number;
+}
+
+export interface HttpReqDurationMetric {
+  avg: number;
+  min: number;
+  med: number;
+  max: number;
+  p90: number;
+  p95: number;
+}
+
+export interface IterationDurationMetric {
+  avg: number;
+  min: number;
+  med: number;
+  max: number;
+  p90: number;
+  p95: number;
 }
 
 export class InfluxDataExtractor {
@@ -265,5 +297,73 @@ export class InfluxDataExtractor {
     const failureRate = total > 0 ? (failed / total) * 100 : 0;
 
     return { total, failed, failureRate };
+  }
+
+  async extractHttpReqDuration(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<HttpReqDurationMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_req_duration" and r.runId == "${runId}")
+        |> keep(columns: ["_value"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { avg: 0, min: 0, med: 0, max: 0, p90: 0, p95: 0 };
+    }
+
+    const values = results
+      .map((r) => {
+        const val = r._value;
+        return typeof val === "string" ? parseFloat(val) : (val as number) || 0;
+      })
+      .sort((a, b) => a - b);
+    const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const min = values[0];
+    const max = values[values.length - 1];
+    const med = percentile(values, 50);
+    const p90 = percentile(values, 90);
+    const p95 = percentile(values, 95);
+
+    return { avg, min, med, max, p90, p95 };
+  }
+
+  async extractIterationDuration(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<IterationDurationMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "iteration_duration" and r.runId == "${runId}")
+        |> keep(columns: ["_value"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { avg: 0, min: 0, med: 0, max: 0, p90: 0, p95: 0 };
+    }
+
+    const values = results
+      .map((r) => {
+        const val = r._value;
+        return typeof val === "string" ? parseFloat(val) : (val as number) || 0;
+      })
+      .sort((a, b) => a - b);
+    const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const min = values[0];
+    const max = values[values.length - 1];
+    const med = percentile(values, 50);
+    const p90 = percentile(values, 90);
+    const p95 = percentile(values, 95);
+
+    return { avg, min, med, max, p90, p95 };
   }
 }
