@@ -100,7 +100,23 @@ export class InfluxDataExtractor {
     }
 
     const total = results.length;
-    const timeValues = results
+
+    // Get full test duration
+    const durationQuery = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r.runId == "${runId}")
+        |> keep(columns: ["_time"])
+        |> sort(columns: ["_time"])
+    `;
+
+    const durationResults = await this.client.queryData(durationQuery);
+
+    if (!durationResults || durationResults.length < 2) {
+      return { total, rate: 0 };
+    }
+
+    const timeValues = durationResults
       .map((r) => r._time)
       .filter((t) => t !== null && t !== undefined) as string[];
 
@@ -126,12 +142,7 @@ export class InfluxDataExtractor {
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
         |> filter(fn: (r) => r._measurement == "vus" and r.runId == "${runId}")
-        |> group(columns: ["_measurement"])
-        |> map(fn: (r) => ({
-          current: r._value,
-          min: r.min,
-          max: r.max
-        }))
+        |> keep(columns: ["_value"])
     `;
 
     const results = await this.client.queryData(query);
@@ -140,12 +151,11 @@ export class InfluxDataExtractor {
       return { current: 0, min: 0, max: 0 };
     }
 
-    const lastResult = results[results.length - 1];
-    const current = (lastResult._value as number) || 0;
-    const min = results.reduce((m, r) => Math.min(m, (r._value as number) || 0), current);
-    const max = results.reduce((m, r) => Math.max(m, (r._value as number) || 0), current);
+    const values = results.map((r) => (r._value as number) || 0);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
 
-    return { current, min, max };
+    return { current: max, min, max };
   }
 
   async extractVusMax(
@@ -191,7 +201,23 @@ export class InfluxDataExtractor {
     }
 
     const total = results.length;
-    const timeValues = results
+
+    // Get full test duration
+    const durationQuery = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r.runId == "${runId}")
+        |> keep(columns: ["_time"])
+        |> sort(columns: ["_time"])
+    `;
+
+    const durationResults = await this.client.queryData(durationQuery);
+
+    if (!durationResults || durationResults.length < 2) {
+      return { total, rate: 0 };
+    }
+
+    const timeValues = durationResults
       .map((r) => r._time)
       .filter((t) => t !== null && t !== undefined) as string[];
 

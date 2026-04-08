@@ -16,6 +16,7 @@ function main(): void {
     .option("-st, --start-time <time>", "Start time in ISO 8601 format or relative like '-1h'")
     .option("-et, --end-time <time>", "End time in ISO 8601 format (defaults to now)")
     .option("-c, --config <path>", "Path to config file", ".config.json")
+    .option("-f, --format <format>", "Output format: 'json' or 'cli'", "cli")
     .action(async (options) => {
       try {
         const config = Config.getInstance(options.config).getConfig();
