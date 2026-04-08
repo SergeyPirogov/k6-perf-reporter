@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import { ReporterResponse } from "../data-collector";
+import { table } from "table";
 
 export class CliReporter {
   report(data: ReporterResponse): void {
@@ -82,6 +83,20 @@ export class CliReporter {
       console.log(
         `vus_max${this.padRight("vus_max", 30)}: ${chalk.cyan(String(vusMax.max))} min=${chalk.cyan(String(vusMax.min))} max=${chalk.cyan(String(vusMax.max))}`
       );
+    }
+
+    if (reportData.topSlowUrls) {
+      const topSlowUrls = reportData.topSlowUrls as Record<string, unknown>;
+      const urls = topSlowUrls.urls as Array<{ method: string; url: string; p95Duration: number }>;
+      if (urls && urls.length > 0) {
+        console.log("\nTop 10 Slowest URLs:");
+        console.log("");
+        const tableData = [
+          ["Method", "URL", "p(95) ms"],
+          ...urls.map((u) => [u.method, u.url, this.formatDuration(u.p95Duration)]),
+        ];
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" } } }));
+      }
     }
   }
 

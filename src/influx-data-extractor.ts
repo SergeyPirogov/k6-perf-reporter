@@ -77,6 +77,16 @@ export interface ErrorResponsesMetric {
   rate: number;
 }
 
+export interface TopSlowUrlMetric {
+  method: string;
+  url: string;
+  p95Duration: number;
+}
+
+export interface TopSlowUrlsMetric {
+  urls: TopSlowUrlMetric[];
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -454,5 +464,52 @@ export class InfluxDataExtractor {
     const rate = durationSeconds > 0 ? count / durationSeconds : 0;
 
     return { count, rate };
+  }
+
+  async extractTopSlowUrls(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<TopSlowUrlsMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_req_duration" and r.runId == "${runId}")
+        |> keep(columns: ["_value", "url", "method"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { urls: [] };
+    }
+
+    // Group by URL and method, calculate p95 duration
+    const urlMap = new Map<string, { durations: number[]; method: string }>();
+
+    results.forEach((r) => {
+      const url = r.url as string;
+      const method = r.method as string;
+      const duration = typeof r._value === "string" ? parseFloat(r._value) : (r._value as number) || 0;
+
+      const key = `${method} ${url}`;
+      if (!urlMap.has(key)) {
+        urlMap.set(key, { durations: [], method });
+      }
+      urlMap.get(key)!.durations.push(duration);
+    });
+
+    // Calculate p95 for each URL and sort
+    const topUrls = Array.from(urlMap.entries())
+      .map(([key, data]) => {
+        const sorted = data.durations.sort((a, b) => a - b);
+        const p95Duration = percentile(sorted, 95);
+        const [method, url] = key.split(" ");
+        return { method, url, p95Duration };
+      })
+      .sort((a, b) => b.p95Duration - a.p95Duration)
+      .slice(0, 10);
+
+    return { urls: topUrls };
   }
 }
