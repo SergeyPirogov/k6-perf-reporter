@@ -41,6 +41,77 @@ function main(): void {
       }
     });
 
+  program
+    .command("help")
+    .description("Show help and examples")
+    .action(() => {
+      console.log(`
+k6-reporter - Generate CLI reports from k6 tests stored in InfluxDB
+
+USAGE:
+  k6-reporter <command> [options]
+
+COMMANDS:
+  generate    Generate performance test report
+  help        Show this help message
+
+GENERATE COMMAND:
+  k6-reporter generate --run-id <id> [options]
+
+OPTIONS:
+  --run-id <id>           k6 test run ID (required)
+  -st, --start-time       Start time (relative: -1h, -30m, or ISO 8601)
+  -et, --end-time         End time (ISO 8601 format, defaults to now)
+  -c, --config            Path to config file (default: .config.json)
+  -f, --format            Output format: 'json' or 'cli' (default: cli)
+  -o, --output            Output file path (for json format)
+  -h, --help              Show command help
+  -V, --version           Show version
+
+EXAMPLES:
+
+  1. Generate CLI report for the last hour:
+     k6-reporter generate --run-id 123456790121 -st -1h
+
+  2. Generate report for specific time range:
+     k6-reporter generate --run-id 123456790121 -st -3h -et -1h
+
+  3. Export as JSON:
+     k6-reporter generate --run-id 123456790121 --format json
+
+  4. Save JSON report to file:
+     k6-reporter generate --run-id 123456790121 --format json -o report.json
+
+  5. Use custom config file:
+     k6-reporter generate --run-id 123456790121 -c /path/to/config.json
+
+  6. Get help for generate command:
+     k6-reporter generate --help
+
+TIME FORMAT:
+
+  Relative times (from now):
+    -1h     Last hour
+    -30m    Last 30 minutes
+    -1d     Last day
+
+  ISO 8601 format:
+    2024-04-08T12:00:00Z
+    2024-04-08T12:00:00+02:00
+
+CONFIG FILE:
+
+  The config file (.config.json) should contain InfluxDB connection settings:
+
+  {
+    "influxUrl": "https://influxdb.example.com",
+    "influxToken": "your-influx-token",
+    "influxOrg": "your-org",
+    "influxBucket": "your-bucket"
+  }
+      `);
+    });
+
   program.parse();
 }
 
