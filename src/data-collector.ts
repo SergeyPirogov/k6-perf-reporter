@@ -16,18 +16,29 @@ export class DataCollector {
     this.extractor = new InfluxDataExtractor(config);
   }
 
-  collect(
+  async collect(
     runId: string,
     startTime: string = "-1h",
     endTime: string = "now()",
     data: unknown = {}
-  ): ReporterResponse {
+  ): Promise<ReporterResponse> {
+    const httpReqs = await this.extractor.extractHttpReqs(runId, startTime, endTime);
+    const vus = await this.extractor.extractVus(runId, startTime, endTime);
+    const vusMax = await this.extractor.extractVusMax(runId, startTime, endTime);
+
+    const reportData = {
+      ...(typeof data === "object" && data !== null ? data : {}),
+      httpReqs,
+      vus,
+      vusMax,
+    };
+
     return {
       runId,
       startTime,
       endTime,
       timestamp: new Date().toISOString(),
-      data,
+      data: reportData,
     };
   }
 }

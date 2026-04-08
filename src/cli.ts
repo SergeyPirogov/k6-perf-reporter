@@ -22,7 +22,7 @@ function main(): void {
         const collector = new DataCollector(config);
         const reporter = new JsonReporter();
 
-        const report = collector.collect(
+        const report = await collector.collect(
           options.runId,
           options.startTime || "-1h",
           options.endTime || "now()"
