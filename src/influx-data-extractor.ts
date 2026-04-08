@@ -72,6 +72,11 @@ export interface IterationDurationMetric {
   p95: number;
 }
 
+export interface ErrorResponsesMetric {
+  count: number;
+  rate: number;
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -308,8 +313,8 @@ export class InfluxDataExtractor {
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
-        |> filter(fn: (r) => r._measurement == "http_req_failed" and r.runId == "${runId}")
-        |> keep(columns: ["_value"])
+        |> filter(fn: (r) => r._measurement == "http_reqs" and r.runId == "${runId}")
+        |> keep(columns: ["status"])
     `;
 
     const results = await this.client.queryData(query);
@@ -318,8 +323,11 @@ export class InfluxDataExtractor {
       return { total: 0, failed: 0, failureRate: 0 };
     }
 
-    const failed = results.filter((r) => (r._value as number) === 1).length;
     const total = results.length;
+    const failed = results.filter((r) => {
+      const status = r.status as number;
+      return status > 400;
+    }).length;
     const failureRate = total > 0 ? (failed / total) * 100 : 0;
 
     return { total, failed, failureRate };
@@ -391,5 +399,60 @@ export class InfluxDataExtractor {
     const p95 = percentile(values, 95);
 
     return { avg, min, med, max, p90, p95 };
+  }
+
+  async extractErrorResponses(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<ErrorResponsesMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_reqs" and r.runId == "${runId}")
+        |> keep(columns: ["status", "_time"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { count: 0, rate: 0 };
+    }
+
+    const count = results.filter((r) => {
+      const status = r.status as number;
+      return status > 300;
+    }).length;
+
+    // Get full test duration
+    const durationQuery = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r.runId == "${runId}")
+        |> keep(columns: ["_time"])
+        |> sort(columns: ["_time"])
+    `;
+
+    const durationResults = await this.client.queryData(durationQuery);
+
+    if (!durationResults || durationResults.length < 2) {
+      return { count, rate: 0 };
+    }
+
+    const timeValues = durationResults
+      .map((r) => r._time)
+      .filter((t) => t !== null && t !== undefined) as string[];
+
+    if (timeValues.length < 2) {
+      return { count, rate: 0 };
+    }
+
+    const startTimeMs = new Date(timeValues[0]).getTime();
+    const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
+    const durationSeconds = (endTimeMs - startTimeMs) / 1000;
+
+    const rate = durationSeconds > 0 ? count / durationSeconds : 0;
+
+    return { count, rate };
   }
 }
