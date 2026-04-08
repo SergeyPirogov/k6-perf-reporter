@@ -28,6 +28,7 @@ export class DataCollector {
     const iterations = await this.extractor.extractIterations(runId, startTime, endTime);
     const duration = await this.extractor.calculateTestDuration(runId, startTime, endTime);
     const checks = await this.extractor.extractChecks(runId, startTime, endTime);
+    const httpReqFailed = await this.extractor.extractHttpReqFailed(runId, startTime, endTime);
 
     const reportData = {
       ...(typeof data === "object" && data !== null ? data : {}),
@@ -37,6 +38,7 @@ export class DataCollector {
       iterations,
       duration,
       checks,
+      httpReqFailed,
     };
 
     return {

@@ -34,6 +34,12 @@ export interface ChecksMetric {
   passRate: number;
 }
 
+export interface HttpReqFailedMetric {
+  total: number;
+  failed: number;
+  failureRate: number;
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -234,5 +240,30 @@ export class InfluxDataExtractor {
     const passRate = total > 0 ? (passes / total) * 100 : 0;
 
     return { passes, fails, passRate };
+  }
+
+  async extractHttpReqFailed(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<HttpReqFailedMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_req_failed" and r.runId == "${runId}")
+        |> keep(columns: ["_value"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { total: 0, failed: 0, failureRate: 0 };
+    }
+
+    const failed = results.filter((r) => (r._value as number) === 1).length;
+    const total = results.length;
+    const failureRate = total > 0 ? (failed / total) * 100 : 0;
+
+    return { total, failed, failureRate };
   }
 }
