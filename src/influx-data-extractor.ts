@@ -17,6 +17,11 @@ export interface VusMaxMetric {
   max: number;
 }
 
+export interface IterationsMetric {
+  total: number;
+  rate: number;
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -115,5 +120,41 @@ export class InfluxDataExtractor {
     const max = Math.max(...values);
 
     return { min, max };
+  }
+
+  async extractIterations(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<IterationsMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "iterations" and r.runId == "${runId}")
+        |> keep(columns: ["_value", "_time"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { total: 0, rate: 0 };
+    }
+
+    const total = results.length;
+    const timeValues = results
+      .map((r) => r._time)
+      .filter((t) => t !== null && t !== undefined) as string[];
+
+    if (timeValues.length < 2) {
+      return { total, rate: 0 };
+    }
+
+    const startTimeMs = new Date(timeValues[0]).getTime();
+    const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
+    const durationSeconds = (endTimeMs - startTimeMs) / 1000;
+
+    const rate = durationSeconds > 0 ? total / durationSeconds : 0;
+
+    return { total, rate };
   }
 }

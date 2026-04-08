@@ -25,12 +25,14 @@ export class DataCollector {
     const httpReqs = await this.extractor.extractHttpReqs(runId, startTime, endTime);
     const vus = await this.extractor.extractVus(runId, startTime, endTime);
     const vusMax = await this.extractor.extractVusMax(runId, startTime, endTime);
+    const iterations = await this.extractor.extractIterations(runId, startTime, endTime);
 
     const reportData = {
       ...(typeof data === "object" && data !== null ? data : {}),
       httpReqs,
       vus,
       vusMax,
+      iterations,
     };
 
     return {
