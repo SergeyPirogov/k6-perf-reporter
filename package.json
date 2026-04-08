@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "report": "tsx src/cli.ts",
-    "report:example": "INFLUX_TOKEN='JFP9pZu3Sp134rkCZ6gT7FtSBmQRWgl8VmVhFMHTXrbkhKQ3LrvrM4FXECR7Lr8MsDGWLIsU7IJFcjL_QHwvqA==' tsx src/cli.ts generate --scenario storefront_main_page --start-time '2026-04-02T21:17:28.487Z' --end-time '2026-04-02T21:22:02.858Z' --format cli",
+    "report:example": "tsx src/cli.ts generate --run-id '12345679012' -st '-1h'",
     "lint": "eslint src",
     "type-check": "tsc --noEmit"
   },

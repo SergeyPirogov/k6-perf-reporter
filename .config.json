@@ -1,0 +1,8 @@
+{
+  "influx": {
+    "url": "https://influx.cmn.monomarket.tech",
+    "token": "JFP9pZu3Sp134rkCZ6gT7FtSBmQRWgl8VmVhFMHTXrbkhKQ3LrvrM4FXECR7Lr8MsDGWLIsU7IJFcjL_QHwvqA==",
+    "org": "ced1cdfb28534a3e",
+    "bucket": "jmeter"
+  }
+}

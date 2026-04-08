@@ -1,0 +1,8 @@
+{
+  "influx": {
+    "url": "http://localhost:8086",
+    "token": "${INFLUX_TOKEN}",
+    "org": "my-org",
+    "bucket": "k6"
+  }
+}
