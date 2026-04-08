@@ -6,6 +6,7 @@ export class CliReporter {
   report(data: ReporterResponse): void {
     this.printHeader(data);
     this.printReport(data);
+    this.printSummary(data);
   }
 
   private printHeader(data: ReporterResponse): void {
@@ -165,5 +166,38 @@ export class CliReporter {
       return `${ms.toFixed(2)}ms`;
     }
     return `${(ms / 1000).toFixed(2)}s`;
+  }
+
+  private printSummary(data: ReporterResponse): void {
+    const reportData = data.data as Record<string, unknown>;
+
+    let errorPercent = 0;
+    let failedChecks = 0;
+
+    // Calculate error percentage
+    if (reportData.httpReqFailed) {
+      const failed = reportData.httpReqFailed as Record<string, number>;
+      errorPercent = typeof failed.failureRate === "number" ? failed.failureRate : 0;
+    }
+
+    // Get failed checks count
+    if (reportData.checks) {
+      const checks = reportData.checks as Record<string, number>;
+      failedChecks = typeof checks.fails === "number" ? checks.fails : 0;
+    }
+
+    // Determine success/failure
+    const isSuccess = errorPercent < 1 && failedChecks === 0;
+
+    console.log("\n---");
+    if (isSuccess) {
+      console.log(chalk.green.bold("✓ PASS"));
+    } else {
+      console.log(chalk.red.bold("✗ FAIL"));
+    }
+    console.log("");
+    console.log(`${chalk.gray("Error Rate:")} ${chalk.cyan(errorPercent.toFixed(2) + "%")}`);
+    console.log(`${chalk.gray("Failed Checks:")} ${chalk.cyan(String(failedChecks))}`);
+    console.log("---\n");
   }
 }
