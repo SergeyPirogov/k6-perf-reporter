@@ -22,6 +22,12 @@ export interface IterationsMetric {
   rate: number;
 }
 
+export interface DurationMetric {
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -156,5 +162,45 @@ export class InfluxDataExtractor {
     const rate = durationSeconds > 0 ? total / durationSeconds : 0;
 
     return { total, rate };
+  }
+
+  async calculateTestDuration(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<DurationMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r.runId == "${runId}")
+        |> keep(columns: ["_time"])
+        |> sort(columns: ["_time"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { startTime: "", endTime: "", durationSeconds: 0 };
+    }
+
+    const timeValues = results
+      .map((r) => r._time)
+      .filter((t) => t !== null && t !== undefined) as string[];
+
+    if (timeValues.length === 0) {
+      return { startTime: "", endTime: "", durationSeconds: 0 };
+    }
+
+    const firstTime = timeValues[0];
+    const lastTime = timeValues[timeValues.length - 1];
+    const startTimeMs = new Date(firstTime).getTime();
+    const endTimeMs = new Date(lastTime).getTime();
+    const durationSeconds = (endTimeMs - startTimeMs) / 1000;
+
+    return {
+      startTime: firstTime,
+      endTime: lastTime,
+      durationSeconds,
+    };
   }
 }
