@@ -1,6 +1,6 @@
 {
   "name": "k6-perf-reporter",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Reporting tool for k6 performance tests with InfluxDB 2 integration",
   "main": "dist/index.js",
   "bin": {
@@ -11,8 +11,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "report": "tsx src/cli.ts",
-    "report:example": "tsx src/cli.ts generate --run-id '123456790121' -st '-3h'",
-    "report:example:json": "tsx src/cli.ts generate --run-id '123456790121' -st '-4h' --format json",
+    "report:example": "tsx src/cli.ts generate --run-id '964345' -st '-3h'",
+    "report:example:json": "tsx src/cli.ts generate --run-id '964345' -st '-4h' --format json",
     "lint": "eslint src",
     "type-check": "tsc --noEmit"
   },
