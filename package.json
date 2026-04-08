@@ -16,7 +16,7 @@
     "@influxdata/influxdb-client": "^1.33.2",
     "chalk": "^5.3.0",
     "commander": "^11.1.0",
-    "puppeteer": "^21.6.1",
+    "puppeteer": "^24.40.0",
     "table": "^6.8.1"
   },
   "devDependencies": {
