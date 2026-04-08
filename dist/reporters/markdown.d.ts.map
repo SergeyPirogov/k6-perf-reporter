@@ -1,0 +1,1 @@
+{"version":3,"file":"markdown.d.ts","sourceRoot":"","sources":["../../src/reporters/markdown.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,WAAW,EAAE,MAAM,UAAU,CAAC;AAEvC,qBAAa,gBAAgB;IAC3B,QAAQ,CAAC,OAAO,EAAE,WAAW,EAAE,QAAQ,EAAE,MAAM,GAAG,MAAM;CA0FzD"}

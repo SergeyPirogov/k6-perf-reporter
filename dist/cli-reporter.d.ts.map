@@ -1,0 +1,1 @@
+{"version":3,"file":"cli-reporter.d.ts","sourceRoot":"","sources":["../src/cli-reporter.ts"],"names":[],"mappings":"AAEA,OAAO,EAAE,WAAW,EAAE,MAAM,UAAU,CAAC;AAEvC,qBAAa,WAAW;IACtB,iBAAiB,CAAC,OAAO,EAAE,WAAW,EAAE,QAAQ,EAAE,MAAM,GAAG,IAAI;CAkEhE"}
