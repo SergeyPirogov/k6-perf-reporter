@@ -28,6 +28,12 @@ export interface DurationMetric {
   durationSeconds: number;
 }
 
+export interface ChecksMetric {
+  passes: number;
+  fails: number;
+  passRate: number;
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -202,5 +208,31 @@ export class InfluxDataExtractor {
       endTime: lastTime,
       durationSeconds,
     };
+  }
+
+  async extractChecks(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<ChecksMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "checks" and r.runId == "${runId}")
+        |> keep(columns: ["_value"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { passes: 0, fails: 0, passRate: 0 };
+    }
+
+    const passes = results.filter((r) => (r._value as number) === 1).length;
+    const fails = results.filter((r) => (r._value as number) === 0).length;
+    const total = passes + fails;
+    const passRate = total > 0 ? (passes / total) * 100 : 0;
+
+    return { passes, fails, passRate };
   }
 }

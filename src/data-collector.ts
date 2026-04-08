@@ -27,6 +27,7 @@ export class DataCollector {
     const vusMax = await this.extractor.extractVusMax(runId, startTime, endTime);
     const iterations = await this.extractor.extractIterations(runId, startTime, endTime);
     const duration = await this.extractor.calculateTestDuration(runId, startTime, endTime);
+    const checks = await this.extractor.extractChecks(runId, startTime, endTime);
 
     const reportData = {
       ...(typeof data === "object" && data !== null ? data : {}),
@@ -35,6 +36,7 @@ export class DataCollector {
       vusMax,
       iterations,
       duration,
+      checks,
     };
 
     return {
