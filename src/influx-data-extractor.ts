@@ -99,6 +99,20 @@ export interface ErrorRequestsMetric {
   errors: ErrorRequestMetric[];
 }
 
+export interface SuccessRequestMetric {
+  method: string;
+  url: string;
+  status: number;
+  count: number;
+  min: number;
+  avg: number;
+  p95: number;
+}
+
+export interface SuccessRequestsMetric {
+  requests: SuccessRequestMetric[];
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -583,5 +597,86 @@ export class InfluxDataExtractor {
       .slice(0, 10);
 
     return { errors: topErrors };
+  }
+
+  async extractSuccessRequests(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<SuccessRequestsMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_reqs" and r.runId == "${runId}")
+        |> keep(columns: ["_value", "url", "method", "status"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { requests: [] };
+    }
+
+    // Filter only successful responses (status < 400)
+    const successResults = results.filter((r) => {
+      const status = r.status as number;
+      return status < 400;
+    });
+
+    if (successResults.length === 0) {
+      return { requests: [] };
+    }
+
+    // Get duration data for successful requests
+    const durationQuery = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_req_duration" and r.runId == "${runId}")
+        |> keep(columns: ["_value", "url", "method", "status"])
+    `;
+
+    const durationResults = await this.client.queryData(durationQuery);
+
+    if (!durationResults || durationResults.length === 0) {
+      return { requests: [] };
+    }
+
+    // Filter only successful durations (status < 400)
+    const successDurations = durationResults.filter((r) => {
+      const status = r.status as number;
+      return status < 400;
+    });
+
+    // Group by URL, method, and status
+    const requestMap = new Map<string, { durations: number[]; method: string; status: number; count: number }>();
+
+    successDurations.forEach((r) => {
+      const url = r.url as string;
+      const method = r.method as string;
+      const status = r.status as number;
+      const duration = typeof r._value === "string" ? parseFloat(r._value) : (r._value as number) || 0;
+
+      const key = `${method} ${url} ${status}`;
+      if (!requestMap.has(key)) {
+        requestMap.set(key, { durations: [], method, status, count: 0 });
+      }
+      const entry = requestMap.get(key)!;
+      entry.durations.push(duration);
+      entry.count++;
+    });
+
+    // Calculate stats for each endpoint and sort by count (descending)
+    const topRequests = Array.from(requestMap.entries())
+      .map(([key, data]) => {
+        const sorted = data.durations.sort((a, b) => a - b);
+        const min = sorted[0];
+        const avg = data.durations.reduce((sum, val) => sum + val, 0) / data.durations.length;
+        const p95 = percentile(sorted, 95);
+        const [method, url] = key.split(" ").slice(0, 2).join(" ").split(" ");
+        return { method, url, status: data.status, count: data.count, min, avg, p95 };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    return { requests: topRequests };
   }
 }
