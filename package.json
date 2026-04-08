@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Reporting tool for k6 performance tests with InfluxDB 2 integration",
   "main": "dist/index.js",
+  "bin": {
+    "k6-reporter": "dist/cli.js"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
