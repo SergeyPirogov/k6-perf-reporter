@@ -63,37 +63,31 @@ export class Config {
   }
 
   private parseSlackConfig(rawConfig: Record<string, unknown> | undefined): SlackConfig | null {
-    if (!rawConfig) {
-      return null;
-    }
-
-    const token = this.resolveValue(rawConfig.token as string | undefined, "SLACK_TOKEN");
+    const token = this.resolveValue(rawConfig?.token as string | undefined, "SLACK_TOKEN");
     if (!token) {
       return null;
     }
 
-    const channel = this.resolveValue(rawConfig.channel as string | undefined, "SLACK_CHANNEL");
+    const channel = this.resolveValue(rawConfig?.channel as string | undefined, "SLACK_CHANNEL");
     if (!channel) {
-      throw new Error("Slack channel is required and cannot be empty. Set via config file or SLACK_CHANNEL environment variable.");
+      throw new Error(
+        "Slack channel is required and cannot be empty. " +
+        "Set SLACK_CHANNEL via environment variable or configure in config file."
+      );
     }
 
     return { token, channel };
   }
 
   private resolveValue(configValue: string | undefined, envVar: string): string | null {
-    // First check environment variable
+    // First check environment variable (takes priority)
     const envValue = process.env[envVar];
     if (envValue) {
       return envValue;
     }
 
-    // Then check config value
-    if (!configValue) {
-      return null;
-    }
-
-    // Return config value directly
-    return configValue;
+    // Fall back to config value
+    return configValue || null;
   }
 
   static getInstance(configPath?: string): Config {
