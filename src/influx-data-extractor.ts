@@ -872,16 +872,16 @@ export class InfluxDataExtractor {
     });
 
     // Calculate RPS statistics per URL
-    const urlRpsMap = new Map<string, { windowCounts: number[]; count: number }>();
+    const urlRpsMap = new Map<string, { windowCounts: number[]; totalCount: number }>();
 
     Array.from(urlWindowMap.entries()).forEach(([key, count]) => {
       const methodUrlKey = key.split("|")[0];
       if (!urlRpsMap.has(methodUrlKey)) {
-        urlRpsMap.set(methodUrlKey, { windowCounts: [], count: 0 });
+        urlRpsMap.set(methodUrlKey, { windowCounts: [], totalCount: 0 });
       }
       const entry = urlRpsMap.get(methodUrlKey)!;
       entry.windowCounts.push(count);
-      entry.count++;
+      entry.totalCount += count;
     });
 
     // Build result array with RPS statistics
@@ -900,7 +900,7 @@ export class InfluxDataExtractor {
         return {
           method,
           url,
-          count: results.filter((r) => (r.method as string) === method && (r.url as string) === url).length,
+          count: data.totalCount,
           rps: { avg: rpsAvg, p95: rpsP95, max: rpsMax },
         };
       })
