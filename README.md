@@ -259,7 +259,11 @@ For InfluxDB time queries, use relative or absolute formats:
 
 ## Environment Variables
 
-You can configure InfluxDB settings via environment variables instead of a config file:
+You can configure InfluxDB settings via environment variables. They can be used in two ways:
+
+### 1. Complete Configuration via Environment Variables
+
+Set all four variables to use environment-only configuration:
 
 ```bash
 export INFLUX_URL=http://localhost:8086
@@ -277,7 +281,19 @@ npx tsx src/cli.ts generate \
   --format cli
 ```
 
-**Note:** If all environment variables (`INFLUX_URL`, `INFLUX_TOKEN`, `INFLUX_ORG`, `INFLUX_BUCKET`) are set, they take precedence over the config file.
+### 2. Override Specific Values from Config File
+
+You can also use environment variables to override individual settings from `.config.json`:
+
+```bash
+# .config.json exists with default settings
+export INFLUX_TOKEN=production-token
+
+# Now the CLI will use the token from env var while other settings come from .config.json
+npx tsx src/cli.ts generate --run-id 123456790121 --format cli
+```
+
+**Note:** Environment variables always take precedence over values in `.config.json`.
 
 ## Prerequisites
 
