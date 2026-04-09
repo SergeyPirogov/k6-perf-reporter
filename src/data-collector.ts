@@ -84,6 +84,10 @@ export class DataCollector {
     const errorResponsesText = await this.extractor.extractErrorResponsesText(runId, startTime, endTime);
     this.loader.success("Extracted error responses text");
 
+    this.loader.start("Extracting RPS per URL...");
+    const rpsPerUrl = await this.extractor.extractRpsPerUrl(runId, startTime, endTime);
+    this.loader.success("Extracted RPS per URL");
+
     this.loader.start("Extracting RPS aggregated (5s intervals)...");
     const rpsAggregated = await this.extractor.extractRpsAggregated(runId, startTime, endTime);
     this.loader.success("Extracted RPS aggregated");
@@ -101,6 +105,7 @@ export class DataCollector {
       httpReqDurationSuccess,
       iterationDuration,
       errorResponses,
+      rpsPerUrl,
       topSlowUrls,
       errorRequests,
       successRequests,

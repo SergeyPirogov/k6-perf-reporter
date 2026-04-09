@@ -38,6 +38,20 @@ export class CliReporter {
       );
     }
 
+    if (reportData.rpsPerUrl) {
+      const rpsPerUrl = reportData.rpsPerUrl as Record<string, unknown>;
+      const urls = rpsPerUrl.urls as Array<{ method: string; url: string; count: number; rps: { avg: number; p95: number; max: number } }>;
+      if (urls && urls.length > 0) {
+        console.log("\nRPS per URL:");
+        console.log("");
+        const tableData = [
+          ["Method", "URL", "Count", "avg", "p(95)", "max"],
+          ...urls.map((u) => [u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
+        ];
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" } } }));
+      }
+    }
+
     if (reportData.httpReqs) {
       const httpReqs = reportData.httpReqs as Record<string, number>;
       console.log(
@@ -106,43 +120,43 @@ export class CliReporter {
 
     if (reportData.topSlowUrls) {
       const topSlowUrls = reportData.topSlowUrls as Record<string, unknown>;
-      const urls = topSlowUrls.urls as Array<{ method: string; url: string; p95Duration: number; rps: { avg: number; p95: number; max: number } }>;
+      const urls = topSlowUrls.urls as Array<{ method: string; url: string; p95Duration: number }>;
       if (urls && urls.length > 0) {
         console.log("\nTop 10 Slowest URLs:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "p(95) ms", "RPS (avg/p95/max)"],
-          ...urls.map((u) => [u.method, u.url, this.formatDuration(u.p95Duration), `${u.rps.avg.toFixed(2)}/${u.rps.p95.toFixed(2)}/${u.rps.max.toFixed(2)}`]),
+          ["Method", "URL", "p(95) ms"],
+          ...urls.map((u) => [u.method, u.url, this.formatDuration(u.p95Duration)]),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" } } }));
       }
     }
 
     if (reportData.errorRequests) {
       const errorRequests = reportData.errorRequests as Record<string, unknown>;
-      const errors = errorRequests.errors as Array<{ method: string; url: string; status: number; p95Duration: number; count: number; rps: { avg: number; p95: number; max: number } }>;
+      const errors = errorRequests.errors as Array<{ method: string; url: string; status: number; p95Duration: number; count: number }>;
       if (errors && errors.length > 0) {
         console.log("\nTop Error Requests:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "Code", "Count", "RPS (avg/p95/max)"],
-          ...errors.map((e) => [e.method, e.url, String(e.status), String(e.count), `${e.rps.avg.toFixed(2)}/${e.rps.p95.toFixed(2)}/${e.rps.max.toFixed(2)}`]),
+          ["Method", "URL", "Code", "Count"],
+          ...errors.map((e) => [e.method, e.url, String(e.status), String(e.count)]),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" } } }));
       }
     }
 
     if (reportData.successRequests) {
       const successRequests = reportData.successRequests as Record<string, unknown>;
-      const requests = successRequests.requests as Array<{ method: string; url: string; status: number; count: number; min: number; avg: number; p95: number; rps: { avg: number; p95: number; max: number } }>;
+      const requests = successRequests.requests as Array<{ method: string; url: string; status: number; count: number; min: number; avg: number; p95: number }>;
       if (requests && requests.length > 0) {
         console.log("\nTop Successful Requests:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "Status", "Count", "RPS (avg/p95/max)", "Min", "Avg", "p(95)"],
-          ...requests.map((r) => [r.method, r.url, String(r.status), String(r.count), `${r.rps.avg.toFixed(2)}/${r.rps.p95.toFixed(2)}/${r.rps.max.toFixed(2)}`, this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
+          ["Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
+          ...requests.map((r) => [r.method, r.url, String(r.status), String(r.count), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" }, 6: { alignment: "left" }, 7: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" }, 6: { alignment: "left" } } }));
       }
     }
 
