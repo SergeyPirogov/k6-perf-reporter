@@ -1,6 +1,5 @@
 import { writeFileSync } from "fs";
 import { ReporterResponse } from "../data-collector";
-import { table } from "table";
 
 export class MarkdownReporter {
   report(data: ReporterResponse, outputPath?: string): void {
