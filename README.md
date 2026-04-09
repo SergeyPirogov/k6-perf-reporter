@@ -259,7 +259,7 @@ For InfluxDB time queries, use relative or absolute formats:
 
 ## Environment Variables
 
-Set these for easier usage:
+You can configure InfluxDB settings via environment variables instead of a config file:
 
 ```bash
 export INFLUX_URL=http://localhost:8086
@@ -268,18 +268,16 @@ export INFLUX_ORG=your-org
 export INFLUX_BUCKET=k6
 ```
 
-Then use:
+Then run the CLI without needing a config file:
 ```bash
 npx tsx src/cli.ts generate \
-  --url $INFLUX_URL \
-  --token $INFLUX_TOKEN \
-  --org $INFLUX_ORG \
-  --bucket $INFLUX_BUCKET \
-  --test-name api-load-test \
+  --run-id 123456790121 \
   --start-time "-1h" \
   --end-time "now()" \
-  --format html
+  --format cli
 ```
+
+**Note:** If all environment variables (`INFLUX_URL`, `INFLUX_TOKEN`, `INFLUX_ORG`, `INFLUX_BUCKET`) are set, they take precedence over the config file.
 
 ## Prerequisites
 
