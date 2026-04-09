@@ -15,98 +15,41 @@ export class SlackReporter {
   }
 
   async report(data: ReporterResponse): Promise<void> {
-    const markdown = this.generateMarkdown(data);
-    await this.sendMessages(markdown);
-  }
-
-  private generateMarkdown(data: ReporterResponse): string {
     const reportData = data.data as Record<string, unknown>;
-    let markdown = "";
 
-    // Header
-    markdown += `*k6 Performance Test Report*\n`;
-    markdown += `• *Run ID:* ${data.runId}\n`;
-    markdown += `• *Start:* ${data.startTime}\n`;
-    markdown += `• *End:* ${data.endTime}\n\n`;
+    // Send summary as first message
+    const summary = this.generateFormattedSummary(reportData);
+    await this.sendMessage(summary);
 
-    // Summary section
-    markdown += this.generateSummary(reportData);
-
-    // Main metrics
-    markdown += this.generateMetrics(reportData);
-
-    // Tables
-    markdown += this.generateTables(reportData);
-
-    return markdown;
+    // Send tables as separate messages
+    const tables = this.generateTables(reportData);
+    await this.sendMessages(tables);
   }
 
-  private generateSummary(reportData: Record<string, unknown>): string {
-    let summary = "*Summary*\n";
-
-    let errorPercent = 0;
-    let failedChecks = 0;
-
-    if (reportData.httpReqFailed) {
-      const failed = reportData.httpReqFailed as Record<string, number>;
-      errorPercent = typeof failed.failureRate === "number" ? failed.failureRate : 0;
-    }
+  private generateFormattedSummary(reportData: Record<string, unknown>): string {
+    let passed = 0;
+    let failed = 0;
+    let skipped = 0;
 
     if (reportData.checks) {
       const checks = reportData.checks as Record<string, number>;
-      failedChecks = typeof checks.fails === "number" ? checks.fails : 0;
+      passed = typeof checks.passes === "number" ? checks.passes : 0;
+      failed = typeof checks.fails === "number" ? checks.fails : 0;
     }
 
-    const isSuccess = errorPercent < 1 && failedChecks === 0;
-    const status = isSuccess ? "✓ PASS" : "✗ FAIL";
-    const statusEmoji = isSuccess ? "✅" : "❌";
+    let summary = `:test_check: Passed: ${passed}  |  :test_fail: Failed: ${failed}  |  :test_skip: Skipped: ${skipped}`;
 
-    summary += `${statusEmoji} *${status}*\n\n`;
-    summary += `• Error Rate: ${errorPercent.toFixed(2)}%\n`;
-    summary += `• Failed Checks: ${failedChecks}\n\n`;
+    // Add metadata if available
+    const metadata = reportData.metadata as Record<string, string>;
+    if (metadata) {
+      summary += `\nStarted by: ${metadata.startedBy || "N/A"}`;
+      summary += `\nTarget env: ${metadata.targetEnv || "N/A"}`;
+      summary += `\nMobile env: ${metadata.mobileEnv || "N/A"}`;
+      summary += `\nPlatform: ${metadata.platform || "N/A"}`;
+      summary += `\nVersion: ${metadata.version || "N/A"}`;
+    }
 
     return summary;
-  }
-
-  private generateMetrics(reportData: Record<string, unknown>): string {
-    let metrics = "*Metrics:*\n";
-
-    if (reportData.checks) {
-      const checks = reportData.checks as Record<string, number>;
-      const passRate = typeof checks.passRate === "number" ? checks.passRate : 0;
-      metrics += `• Checks: ${passRate.toFixed(2)}% (${checks.passes} ✓${checks.fails ? `, ${checks.fails} ✗` : ""})\n`;
-    }
-
-    if (reportData.rpsAggregated) {
-      const rpsAgg = reportData.rpsAggregated as Record<string, unknown>;
-      const avg = typeof rpsAgg.avg === "number" ? rpsAgg.avg : 0;
-      const p95 = typeof rpsAgg.p95 === "number" ? rpsAgg.p95 : 0;
-      const max = typeof rpsAgg.max === "number" ? rpsAgg.max : 0;
-      metrics += `• RPS: avg=${avg.toFixed(2)}, p(95)=${p95.toFixed(2)}, max=${max.toFixed(2)}\n`;
-    }
-
-    if (reportData.httpReqs) {
-      const httpReqs = reportData.httpReqs as Record<string, number>;
-      metrics += `• HTTP Requests: ${httpReqs.total} (${httpReqs.rate.toFixed(6)}/s)\n`;
-    }
-
-    if (reportData.iterations) {
-      const iterations = reportData.iterations as Record<string, number>;
-      metrics += `• Iterations: ${iterations.total} (${iterations.rate.toFixed(6)}/s)\n`;
-    }
-
-    if (reportData.httpReqDuration) {
-      const duration = reportData.httpReqDuration as Record<string, number>;
-      metrics += `• HTTP Duration: avg=${this.formatDuration(duration.avg || 0)}, p(95)=${this.formatDuration(duration.p95 || 0)}\n`;
-    }
-
-    if (reportData.vus) {
-      const vus = reportData.vus as Record<string, number>;
-      metrics += `• VUs: ${vus.current} (min=${vus.min}, max=${vus.max})\n`;
-    }
-
-    metrics += "\n";
-    return metrics;
   }
 
   private generateTables(reportData: Record<string, unknown>): string {
@@ -287,7 +230,7 @@ export class SlackReporter {
     try {
       await this.client.chat.postMessage({
         channel: this.channel,
-        text: "k6 Performance Test Report",
+        text: markdown,
         blocks: [
           {
             type: "section",

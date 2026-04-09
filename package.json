@@ -12,8 +12,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "report": "tsx src/cli.ts",
-    "report:example": "tsx src/cli.ts generate --run-id '965375' -st '-24h'",
-    "report:example:json": "tsx src/cli.ts generate --run-id '964900' -st '-4h' --format json",
+    "report:example": "tsx src/cli.ts generate --run-id '966579' -st '-24h'",
+    "report:example:json": "SLACK_TOKEN=YOUR_SLACK_TOKEN tsx src/cli.ts generate --run-id '966579' -st '-4h' --format slack",
     "lint": "eslint src",
     "type-check": "tsc --noEmit"
   },
