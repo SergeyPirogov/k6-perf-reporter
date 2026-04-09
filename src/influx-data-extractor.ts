@@ -1,10 +1,10 @@
 import { InfluxClient } from "./influx-client";
 import { InfluxConfig } from "./config";
+import ss from "simple-statistics";
 
 const percentile = (values: number[], p: number): number => {
   if (values.length === 0) return 0;
-  const index = Math.ceil((p / 100) * values.length) - 1;
-  return values[Math.max(0, index)];
+  return ss.quantile(values, p / 100);
 };
 
 export interface HttpReqsMetric {
