@@ -111,10 +111,10 @@ export class CliReporter {
         console.log("\nTop 10 Slowest URLs:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "p(95) ms"],
-          ...urls.map((u) => [u.method, u.url, this.formatDuration(u.p95Duration)]),
+          ["#", "Method", "URL", "p(95) ms"],
+          ...urls.map((u, i) => [String(i + 1), u.method, u.url, this.formatDuration(u.p95Duration)]),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" } } }));
       }
     }
 
@@ -139,10 +139,10 @@ export class CliReporter {
         console.log("\nTop Error Requests:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "Code", "Count"],
-          ...errors.map((e) => [e.method, e.url, String(e.status), String(e.count)]),
+          ["#", "Method", "URL", "Code", "Count"],
+          ...errors.map((e, i) => [String(i + 1), e.method, e.url, String(e.status), String(e.count)]),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" } } }));
       }
     }
 
@@ -153,10 +153,10 @@ export class CliReporter {
         console.log("\nTop Successful Requests:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
-          ...requests.map((r) => [r.method, r.url, String(r.status), String(r.count), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
+          ["#", "Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
+          ...requests.map((r, i) => [String(i + 1), r.method, r.url, String(r.status), String(r.count), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" }, 6: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" }, 6: { alignment: "left" }, 7: { alignment: "left" } } }));
       }
     }
 
@@ -186,8 +186,8 @@ export class CliReporter {
         console.log("\nError Responses:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "Status", "Error", "Count"],
-          ...Array.from(groupedErrors.values()).map((r) => {
+          ["#", "Method", "URL", "Status", "Error", "Count"],
+          ...Array.from(groupedErrors.values()).map((r, i) => {
             // Extract path only from URL
             let url = r.url;
             try {
@@ -196,10 +196,10 @@ export class CliReporter {
             } catch {
               // If not a full URL, use as-is
             }
-            return [r.method, url, String(r.status), r.error, String(r.count)];
+            return [String(i + 1), r.method, url, String(r.status), r.error, String(r.count)];
           }),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" } } }));
       }
     }
   }
