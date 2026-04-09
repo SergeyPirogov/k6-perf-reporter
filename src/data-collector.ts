@@ -56,6 +56,10 @@ export class DataCollector {
     const httpReqDuration = await this.extractor.extractHttpReqDuration(runId, startTime, endTime);
     this.loader.success("Extracted http_req_duration");
 
+    this.loader.start("Extracting http_req_duration (success only)...");
+    const httpReqDurationSuccess = await this.extractor.extractHttpReqDurationSuccess(runId, startTime, endTime);
+    this.loader.success("Extracted http_req_duration (success only)");
+
     this.loader.start("Extracting iteration_duration...");
     const iterationDuration = await this.extractor.extractIterationDuration(runId, startTime, endTime);
     this.loader.success("Extracted iteration_duration");
@@ -90,6 +94,7 @@ export class DataCollector {
       checks,
       httpReqFailed,
       httpReqDuration,
+      httpReqDurationSuccess,
       iterationDuration,
       errorResponses,
       topSlowUrls,

@@ -63,6 +63,15 @@ export interface HttpReqDurationMetric {
   p95: number;
 }
 
+export interface HttpReqDurationSuccessMetric {
+  avg: number;
+  min: number;
+  med: number;
+  max: number;
+  p90: number;
+  p95: number;
+}
+
 export interface IterationDurationMetric {
   avg: number;
   min: number;
@@ -392,6 +401,41 @@ export class InfluxDataExtractor {
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
         |> filter(fn: (r) => r._measurement == "http_req_duration" and r.runId == "${runId}")
+        |> keep(columns: ["_value"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { avg: 0, min: 0, med: 0, max: 0, p90: 0, p95: 0 };
+    }
+
+    const values = results
+      .map((r) => {
+        const val = r._value;
+        return typeof val === "string" ? parseFloat(val) : (val as number) || 0;
+      })
+      .sort((a, b) => a - b);
+    const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const min = values[0];
+    const max = values[values.length - 1];
+    const med = percentile(values, 50);
+    const p90 = percentile(values, 90);
+    const p95 = percentile(values, 95);
+
+    return { avg, min, med, max, p90, p95 };
+  }
+
+  async extractHttpReqDurationSuccess(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<HttpReqDurationSuccessMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_req_duration" and r.runId == "${runId}")
+        |> filter(fn: (r) => exists r.status and int(v: r.status) < 400)
         |> keep(columns: ["_value"])
     `;
 

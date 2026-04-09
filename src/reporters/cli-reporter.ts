@@ -54,7 +54,15 @@ export class CliReporter {
     if (reportData.httpReqDuration) {
       const duration = reportData.httpReqDuration as Record<string, number>;
       console.log(
-        `http_req_duration${this.padRight("http_req_duration", 30)}: avg=${chalk.cyan(this.formatDuration(duration.avg || 0))} min=${chalk.cyan(this.formatDuration(duration.min || 0))} med=${chalk.cyan(this.formatDuration((duration.min || 0) + (duration.max || 0) / 2))} max=${chalk.cyan(this.formatDuration(duration.max || 0))} p(90)=${chalk.cyan(this.formatDuration(duration.p90 || 0))} p(95)=${chalk.cyan(this.formatDuration(duration.p95 || 0))}`
+        `http_req_duration${this.padRight("http_req_duration", 30)}: avg=${chalk.cyan(this.formatDuration(duration.avg || 0))} min=${chalk.cyan(this.formatDuration(duration.min || 0))} med=${chalk.cyan(this.formatDuration(duration.med || 0))} max=${chalk.cyan(this.formatDuration(duration.max || 0))} p(90)=${chalk.cyan(this.formatDuration(duration.p90 || 0))} p(95)=${chalk.cyan(this.formatDuration(duration.p95 || 0))}`
+      );
+    }
+
+    if (reportData.httpReqDurationSuccess) {
+      const duration = reportData.httpReqDurationSuccess as Record<string, number>;
+      const label = '{ expected_response:"true" }';
+      console.log(
+        `${label}${this.padRight(label, 30)}: avg=${chalk.cyan(this.formatDuration(duration.avg || 0))} min=${chalk.cyan(this.formatDuration(duration.min || 0))} med=${chalk.cyan(this.formatDuration(duration.med || 0))} max=${chalk.cyan(this.formatDuration(duration.max || 0))} p(90)=${chalk.cyan(this.formatDuration(duration.p90 || 0))} p(95)=${chalk.cyan(this.formatDuration(duration.p95 || 0))}`
       );
     }
 
@@ -68,7 +76,7 @@ export class CliReporter {
     if (reportData.iterationDuration) {
       const itDuration = reportData.iterationDuration as Record<string, number>;
       console.log(
-        `iteration_duration${this.padRight("iteration_duration", 30)}: avg=${chalk.cyan(this.formatDuration(itDuration.avg || 0))} min=${chalk.cyan(this.formatDuration(itDuration.min || 0))} med=${chalk.cyan(this.formatDuration((itDuration.min || 0) + (itDuration.max || 0) / 2))} max=${chalk.cyan(this.formatDuration(itDuration.max || 0))} p(90)=${chalk.cyan(this.formatDuration(itDuration.p90 || 0))} p(95)=${chalk.cyan(this.formatDuration(itDuration.p95 || 0))}`
+        `iteration_duration${this.padRight("iteration_duration", 30)}: avg=${chalk.cyan(this.formatDuration(itDuration.avg || 0))} min=${chalk.cyan(this.formatDuration(itDuration.min || 0))} med=${chalk.cyan(this.formatDuration(itDuration.med || 0))} max=${chalk.cyan(this.formatDuration(itDuration.max || 0))} p(90)=${chalk.cyan(this.formatDuration(itDuration.p90 || 0))} p(95)=${chalk.cyan(this.formatDuration(itDuration.p95 || 0))}`
       );
     }
 
