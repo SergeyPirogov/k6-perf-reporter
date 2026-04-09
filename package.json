@@ -12,7 +12,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "report": "tsx src/cli.ts",
-    "report:example": "tsx src/cli.ts generate --run-id '965375' -st '-24h'",
+    "report:example": "tsx src/cli.ts generate --run-id '964900' -st '-24h'",
     "report:example:json": "tsx src/cli.ts generate --run-id '964900' -st '-4h' --format json",
     "lint": "eslint src",
     "type-check": "tsc --noEmit"
