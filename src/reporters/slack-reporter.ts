@@ -1,5 +1,6 @@
 import { WebClient } from "@slack/web-api";
 import { ReporterResponse } from "../data-collector";
+import { table } from "table";
 
 export class SlackReporter {
   private client: WebClient;
@@ -15,7 +16,7 @@ export class SlackReporter {
 
   async report(data: ReporterResponse): Promise<void> {
     const markdown = this.generateMarkdown(data);
-    await this.sendMessage(markdown);
+    await this.sendMessages(markdown);
   }
 
   private generateMarkdown(data: ReporterResponse): string {
@@ -115,12 +116,12 @@ export class SlackReporter {
       const topSlowUrls = reportData.topSlowUrls as Record<string, unknown>;
       const urls = topSlowUrls.urls as Array<{ method: string; url: string; p95Duration: number }>;
       if (urls && urls.length > 0) {
-        tables += "*Top 10 Slowest URLs*\n\n";
+        tables += "*Top 10 Slowest URLs*\n";
         const tableData = [
           ["#", "Method", "URL", "p(95)"],
           ...urls.map((u, i) => [String(i + 1), u.method, u.url, this.formatDuration(u.p95Duration)]),
         ];
-        tables += this.tableToMarkdown(tableData) + "\n\n";
+        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
       }
     }
 
@@ -128,12 +129,12 @@ export class SlackReporter {
       const rpsPerUrl = reportData.rpsPerUrl as Record<string, unknown>;
       const urls = rpsPerUrl.urls as Array<{ method: string; url: string; count: number; rps: { avg: number; p95: number; max: number } }>;
       if (urls && urls.length > 0) {
-        tables += "*RPS per URL*\n\n";
+        tables += "*RPS per URL*\n";
         const tableData = [
           ["#", "Method", "URL", "Count", "avg", "p(95)", "max"],
           ...urls.map((u, i) => [String(i + 1), u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
         ];
-        tables += this.tableToMarkdown(tableData) + "\n\n";
+        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
       }
     }
 
@@ -141,12 +142,12 @@ export class SlackReporter {
       const successRequests = reportData.successRequests as Record<string, unknown>;
       const requests = successRequests.requests as Array<{ method: string; url: string; status: number; count: number; min: number; avg: number; p95: number }>;
       if (requests && requests.length > 0) {
-        tables += "*Top Successful Requests*\n\n";
+        tables += "*Top Successful Requests*\n";
         const tableData = [
           ["#", "Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
           ...requests.map((r, i) => [String(i + 1), r.method, r.url, String(r.status), String(r.count), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
         ];
-        tables += this.tableToMarkdown(tableData) + "\n\n";
+        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
       }
     }
 
@@ -154,12 +155,12 @@ export class SlackReporter {
       const errorRequests = reportData.errorRequests as Record<string, unknown>;
       const errors = errorRequests.errors as Array<{ method: string; url: string; status: number; count: number }>;
       if (errors && errors.length > 0) {
-        tables += "*Top Error Requests*\n\n";
+        tables += "*Top Error Requests*\n";
         const tableData = [
           ["#", "Method", "URL", "Code", "Count"],
           ...errors.map((e, i) => [String(i + 1), e.method, e.url, String(e.status), String(e.count)]),
         ];
-        tables += this.tableToMarkdown(tableData) + "\n\n";
+        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
       }
     }
 
@@ -185,7 +186,7 @@ export class SlackReporter {
           }
         });
 
-        tables += "*Error Responses*\n\n";
+        tables += "*Error Responses*\n";
         const tableData = [
           ["#", "Method", "URL", "Status", "Error", "Count"],
           ...Array.from(groupedErrors.values()).map((r, i) => {
@@ -199,26 +200,45 @@ export class SlackReporter {
             return [String(i + 1), r.method, url, String(r.status), r.error, String(r.count)];
           }),
         ];
-        tables += this.tableToMarkdown(tableData) + "\n\n";
+        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
       }
     }
 
     return tables;
   }
 
-  private tableToMarkdown(tableData: string[][]): string {
+  private formatTable(tableData: string[][]): string {
     if (tableData.length === 0) {
       return "";
     }
 
-    const [headers, ...rows] = tableData;
-    let markdown = "| " + headers.join(" | ") + " |\n";
-    markdown += "|" + headers.map(() => " --- ").join("|") + "|\n";
-    rows.forEach((row) => {
-      markdown += "| " + row.join(" | ") + " |\n";
-    });
+    const columnCount = tableData[0].length;
+    const columnConfig: Record<number, { alignment: "left" | "right" | "center" }> = {};
+    for (let i = 0; i < columnCount; i++) {
+      columnConfig[i] = { alignment: "left" };
+    }
 
-    return markdown;
+    return table(tableData, {
+      border: {
+        topBody: "─",
+        topJoin: "┬",
+        topLeft: "┌",
+        topRight: "┐",
+        bottomBody: "─",
+        bottomJoin: "┴",
+        bottomLeft: "└",
+        bottomRight: "┘",
+        bodyLeft: "│",
+        bodyRight: "│",
+        bodyJoin: "│",
+        joinBody: "─",
+        joinLeft: "├",
+        joinRight: "┤",
+        joinJoin: "┼",
+      },
+      drawHorizontalLine: (index) => index === 1,
+      columns: columnConfig,
+    });
   }
 
   private formatDuration(ms: number): string {
@@ -229,6 +249,38 @@ export class SlackReporter {
       return `${ms.toFixed(2)}ms`;
     }
     return `${(ms / 1000).toFixed(2)}s`;
+  }
+
+  private async sendMessages(markdown: string): Promise<void> {
+    const MAX_BLOCK_LENGTH = 3000;
+    const messages = this.splitIntoMessages(markdown, MAX_BLOCK_LENGTH);
+
+    for (const message of messages) {
+      await this.sendMessage(message);
+    }
+  }
+
+  private splitIntoMessages(text: string, maxLength: number): string[] {
+    const messages: string[] = [];
+    const sections = text.split(/(\n\n)/);
+    let currentMessage = "";
+
+    for (const section of sections) {
+      if ((currentMessage + section).length <= maxLength) {
+        currentMessage += section;
+      } else {
+        if (currentMessage) {
+          messages.push(currentMessage);
+        }
+        currentMessage = section;
+      }
+    }
+
+    if (currentMessage) {
+      messages.push(currentMessage);
+    }
+
+    return messages;
   }
 
   private async sendMessage(markdown: string): Promise<void> {
