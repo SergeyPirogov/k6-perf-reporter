@@ -132,12 +132,30 @@ export class CliReporter {
       const errorResponsesText = reportData.errorResponsesText as Record<string, unknown>;
       const responses = errorResponsesText.responses as Array<{ url: string; method: string; status: number; error: string }>;
       if (responses && responses.length > 0) {
+        // Group by method, URL, status, and error
+        const groupedErrors = new Map<string, { method: string; url: string; status: number; error: string; count: number }>();
+
+        responses.forEach((r) => {
+          const key = `${r.method}|${r.url}|${r.status}|${r.error}`;
+          if (groupedErrors.has(key)) {
+            const entry = groupedErrors.get(key)!;
+            entry.count++;
+          } else {
+            groupedErrors.set(key, {
+              method: r.method,
+              url: r.url,
+              status: r.status,
+              error: r.error || "",
+              count: 1,
+            });
+          }
+        });
+
         console.log("\nError Responses:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "Status", "Error"],
-          ...responses.map((r) => {
-            const error = r.error || "";
+          ["Method", "URL", "Status", "Error", "Count"],
+          ...Array.from(groupedErrors.values()).map((r) => {
             // Extract path only from URL
             let url = r.url;
             try {
@@ -146,10 +164,10 @@ export class CliReporter {
             } catch {
               // If not a full URL, use as-is
             }
-            return [r.method, url, String(r.status), error];
+            return [r.method, url, String(r.status), r.error, String(r.count)];
           }),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" } } }));
       }
     }
   }
