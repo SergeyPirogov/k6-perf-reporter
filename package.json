@@ -2,6 +2,7 @@
   "name": "k6-perf-reporter",
   "version": "1.4.0",
   "description": "Reporting tool for k6 performance tests with InfluxDB 2 integration",
+  "license": "MIT",
   "main": "dist/index.js",
   "bin": {
     "k6-reporter": "dist/cli.js"
