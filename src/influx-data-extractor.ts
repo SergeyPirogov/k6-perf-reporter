@@ -78,11 +78,17 @@ export interface ErrorResponsesMetric {
   rate: number;
 }
 
+export interface RpsMetric {
+  avg: number;
+  p95: number;
+  max: number;
+}
+
 export interface TopSlowUrlMetric {
   method: string;
   url: string;
   p95Duration: number;
-  rps: number;
+  rps: RpsMetric;
 }
 
 export interface TopSlowUrlsMetric {
@@ -95,7 +101,7 @@ export interface ErrorRequestMetric {
   status: number;
   p95Duration: number;
   count: number;
-  rps: number;
+  rps: RpsMetric;
 }
 
 export interface ErrorRequestsMetric {
@@ -110,7 +116,7 @@ export interface SuccessRequestMetric {
   min: number;
   avg: number;
   p95: number;
-  rps: number;
+  rps: RpsMetric;
 }
 
 export interface SuccessRequestsMetric {
@@ -561,7 +567,7 @@ export class InfluxDataExtractor {
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
         |> filter(fn: (r) => r._measurement == "http_req_duration" and r.runId == "${runId}")
-        |> keep(columns: ["_value", "url", "method"])
+        |> keep(columns: ["_value", "url", "method", "_time"])
     `;
 
     const results = await this.client.queryData(query);
@@ -570,32 +576,11 @@ export class InfluxDataExtractor {
       return { urls: [] };
     }
 
-    // Get test duration for RPS calculation
-    const durationQuery = `
-      from(bucket: "${this.config.bucket}")
-        |> range(start: ${startTime}, stop: ${endTime})
-        |> filter(fn: (r) => r.runId == "${runId}")
-        |> keep(columns: ["_time"])
-        |> sort(columns: ["_time"])
-    `;
-
-    const durationResults = await this.client.queryData(durationQuery);
-    let testDurationSeconds = 1;
-
-    if (durationResults && durationResults.length >= 2) {
-      const timeValues = durationResults
-        .map((r) => r._time)
-        .filter((t) => t !== null && t !== undefined) as string[];
-
-      if (timeValues.length >= 2) {
-        const startTimeMs = new Date(timeValues[0]).getTime();
-        const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
-        testDurationSeconds = Math.max(1, (endTimeMs - startTimeMs) / 1000);
-      }
-    }
-
     // Group by URL and method, calculate p95 duration
-    const urlMap = new Map<string, { durations: number[]; method: string; count: number }>();
+    const urlMap = new Map<string, { durations: number[]; method: string; count: number; windowCounts: number[] }>();
+
+    // First pass: collect durations and window-based RPS counts
+    const urlWindowMap = new Map<string, number>();
 
     results.forEach((r) => {
       const url = r.url as string;
@@ -604,11 +589,28 @@ export class InfluxDataExtractor {
 
       const key = `${method} ${url}`;
       if (!urlMap.has(key)) {
-        urlMap.set(key, { durations: [], method, count: 0 });
+        urlMap.set(key, { durations: [], method, count: 0, windowCounts: [] });
       }
       const entry = urlMap.get(key)!;
       entry.durations.push(duration);
       entry.count++;
+
+      // Group by 1-second window for RPS calculation
+      const timestamp = new Date(r._time as string);
+      const windowTime = new Date(timestamp);
+      windowTime.setMilliseconds(0);
+      const windowKey = `${key}|${windowTime.toISOString()}`;
+
+      urlWindowMap.set(windowKey, (urlWindowMap.get(windowKey) || 0) + 1);
+    });
+
+    // Calculate RPS statistics per URL (requests per second in each window)
+    Array.from(urlWindowMap.entries()).forEach(([windowKey, count]) => {
+      const urlMethodKey = windowKey.split("|").slice(0, -1).join("|");
+      const entry = urlMap.get(urlMethodKey);
+      if (entry) {
+        entry.windowCounts.push(count);
+      }
     });
 
     // Calculate p95 for each URL and sort
@@ -617,8 +619,14 @@ export class InfluxDataExtractor {
         const sorted = data.durations.sort((a, b) => a - b);
         const p95Duration = percentile(sorted, 95);
         const [method, url] = key.split(" ");
-        const rps = data.count / testDurationSeconds;
-        return { method, url, p95Duration, rps };
+
+        // Calculate RPS statistics from window counts
+        const sortedRps = data.windowCounts.sort((a, b) => a - b);
+        const rpsAvg = sortedRps.reduce((sum, val) => sum + val, 0) / sortedRps.length;
+        const rpsMax = sortedRps[sortedRps.length - 1];
+        const rpsP95 = percentile(sortedRps, 95);
+
+        return { method, url, p95Duration, rps: { avg: rpsAvg, p95: rpsP95, max: rpsMax } };
       })
       .sort((a, b) => b.p95Duration - a.p95Duration)
       .slice(0, 10);
@@ -635,37 +643,13 @@ export class InfluxDataExtractor {
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
         |> filter(fn: (r) => r._measurement == "http_reqs" and r.runId == "${runId}")
-        |> keep(columns: ["_value", "url", "method", "status"])
+        |> keep(columns: ["_value", "url", "method", "status", "_time"])
     `;
 
     const results = await this.client.queryData(query);
 
     if (!results || results.length === 0) {
       return { errors: [] };
-    }
-
-    // Get test duration for RPS calculation
-    const durationQuery = `
-      from(bucket: "${this.config.bucket}")
-        |> range(start: ${startTime}, stop: ${endTime})
-        |> filter(fn: (r) => r.runId == "${runId}")
-        |> keep(columns: ["_time"])
-        |> sort(columns: ["_time"])
-    `;
-
-    const durationResults = await this.client.queryData(durationQuery);
-    let testDurationSeconds = 1;
-
-    if (durationResults && durationResults.length >= 2) {
-      const timeValues = durationResults
-        .map((r) => r._time)
-        .filter((t) => t !== null && t !== undefined) as string[];
-
-      if (timeValues.length >= 2) {
-        const startTimeMs = new Date(timeValues[0]).getTime();
-        const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
-        testDurationSeconds = Math.max(1, (endTimeMs - startTimeMs) / 1000);
-      }
     }
 
     // Filter only error responses (status > 400)
@@ -678,8 +662,9 @@ export class InfluxDataExtractor {
       return { errors: [] };
     }
 
-    // Group by URL, method, and status
-    const errorMap = new Map<string, { durations: number[]; method: string; status: number; count: number }>();
+    // Group by URL, method, and status; collect durations and window-based RPS counts
+    const errorMap = new Map<string, { durations: number[]; method: string; status: number; count: number; windowCounts: number[] }>();
+    const urlWindowMap = new Map<string, number>();
 
     errorResults.forEach((r) => {
       const url = r.url as string;
@@ -689,11 +674,28 @@ export class InfluxDataExtractor {
 
       const key = `${method} ${url} ${status}`;
       if (!errorMap.has(key)) {
-        errorMap.set(key, { durations: [], method, status, count: 0 });
+        errorMap.set(key, { durations: [], method, status, count: 0, windowCounts: [] });
       }
       const entry = errorMap.get(key)!;
       entry.durations.push(duration);
       entry.count++;
+
+      // Group by 1-second window for RPS calculation
+      const timestamp = new Date(r._time as string);
+      const windowTime = new Date(timestamp);
+      windowTime.setMilliseconds(0);
+      const windowKey = `${key}|${windowTime.toISOString()}`;
+
+      urlWindowMap.set(windowKey, (urlWindowMap.get(windowKey) || 0) + 1);
+    });
+
+    // Calculate RPS statistics per error request
+    Array.from(urlWindowMap.entries()).forEach(([windowKey, count]) => {
+      const errorKey = windowKey.split("|").slice(0, -1).join("|");
+      const entry = errorMap.get(errorKey);
+      if (entry) {
+        entry.windowCounts.push(count);
+      }
     });
 
     // Calculate p95 for each error endpoint and sort by count (descending)
@@ -702,8 +704,14 @@ export class InfluxDataExtractor {
         const sorted = data.durations.sort((a, b) => a - b);
         const p95Duration = percentile(sorted, 95);
         const [method, url] = key.split(" ").slice(0, 2).join(" ").split(" ");
-        const rps = data.count / testDurationSeconds;
-        return { method, url, status: data.status, p95Duration, count: data.count, rps };
+
+        // Calculate RPS statistics from window counts
+        const sortedRps = data.windowCounts.sort((a, b) => a - b);
+        const rpsAvg = sortedRps.reduce((sum, val) => sum + val, 0) / sortedRps.length;
+        const rpsMax = sortedRps[sortedRps.length - 1];
+        const rpsP95 = percentile(sortedRps, 95);
+
+        return { method, url, status: data.status, p95Duration, count: data.count, rps: { avg: rpsAvg, p95: rpsP95, max: rpsMax } };
       })
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
@@ -729,30 +737,6 @@ export class InfluxDataExtractor {
       return { requests: [] };
     }
 
-    // Get test duration for RPS calculation
-    const durationQuery = `
-      from(bucket: "${this.config.bucket}")
-        |> range(start: ${startTime}, stop: ${endTime})
-        |> filter(fn: (r) => r.runId == "${runId}")
-        |> keep(columns: ["_time"])
-        |> sort(columns: ["_time"])
-    `;
-
-    const durationResults = await this.client.queryData(durationQuery);
-    let testDurationSeconds = 1;
-
-    if (durationResults && durationResults.length >= 2) {
-      const timeValues = durationResults
-        .map((r) => r._time)
-        .filter((t) => t !== null && t !== undefined) as string[];
-
-      if (timeValues.length >= 2) {
-        const startTimeMs = new Date(timeValues[0]).getTime();
-        const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
-        testDurationSeconds = Math.max(1, (endTimeMs - startTimeMs) / 1000);
-      }
-    }
-
     // Filter only successful responses (status < 400)
     const successResults = results.filter((r) => {
       const status = r.status as number;
@@ -768,7 +752,7 @@ export class InfluxDataExtractor {
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
         |> filter(fn: (r) => r._measurement == "http_req_duration" and r.runId == "${runId}")
-        |> keep(columns: ["_value", "url", "method", "status"])
+        |> keep(columns: ["_value", "url", "method", "status", "_time"])
     `;
 
     const durationResultsSuccess = await this.client.queryData(durationQuerySuccess);
@@ -783,8 +767,9 @@ export class InfluxDataExtractor {
       return status < 400;
     });
 
-    // Group by URL, method, and status
-    const requestMap = new Map<string, { durations: number[]; method: string; status: number; count: number }>();
+    // Group by URL, method, and status; collect durations and window-based RPS counts
+    const requestMap = new Map<string, { durations: number[]; method: string; status: number; count: number; windowCounts: number[] }>();
+    const urlWindowMap = new Map<string, number>();
 
     successDurations.forEach((r) => {
       const url = r.url as string;
@@ -794,11 +779,28 @@ export class InfluxDataExtractor {
 
       const key = `${method} ${url} ${status}`;
       if (!requestMap.has(key)) {
-        requestMap.set(key, { durations: [], method, status, count: 0 });
+        requestMap.set(key, { durations: [], method, status, count: 0, windowCounts: [] });
       }
       const entry = requestMap.get(key)!;
       entry.durations.push(duration);
       entry.count++;
+
+      // Group by 1-second window for RPS calculation
+      const timestamp = new Date(r._time as string);
+      const windowTime = new Date(timestamp);
+      windowTime.setMilliseconds(0);
+      const windowKey = `${key}|${windowTime.toISOString()}`;
+
+      urlWindowMap.set(windowKey, (urlWindowMap.get(windowKey) || 0) + 1);
+    });
+
+    // Calculate RPS statistics per success request
+    Array.from(urlWindowMap.entries()).forEach(([windowKey, count]) => {
+      const requestKey = windowKey.split("|").slice(0, -1).join("|");
+      const entry = requestMap.get(requestKey);
+      if (entry) {
+        entry.windowCounts.push(count);
+      }
     });
 
     // Calculate stats for each endpoint and sort by count (descending)
@@ -809,8 +811,14 @@ export class InfluxDataExtractor {
         const avg = data.durations.reduce((sum, val) => sum + val, 0) / data.durations.length;
         const p95 = percentile(sorted, 95);
         const [method, url] = key.split(" ").slice(0, 2).join(" ").split(" ");
-        const rps = data.count / testDurationSeconds;
-        return { method, url, status: data.status, count: data.count, min, avg, p95, rps };
+
+        // Calculate RPS statistics from window counts
+        const sortedRps = data.windowCounts.sort((a, b) => a - b);
+        const rpsAvg = sortedRps.reduce((sum, val) => sum + val, 0) / sortedRps.length;
+        const rpsMax = sortedRps[sortedRps.length - 1];
+        const rpsP95 = percentile(sortedRps, 95);
+
+        return { method, url, status: data.status, count: data.count, min, avg, p95, rps: { avg: rpsAvg, p95: rpsP95, max: rpsMax } };
       })
       .sort((a, b) => b.count - a.count);
 
