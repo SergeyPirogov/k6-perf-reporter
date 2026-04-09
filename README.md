@@ -1,13 +1,13 @@
 # k6-perf-reporter
 
-A comprehensive reporting tool for k6 performance tests with InfluxDB 2 integration. Generates beautiful HTML, PDF, CSV, and JSON reports with key performance metrics.
+A comprehensive reporting tool for k6 performance tests with InfluxDB 2 integration. Generates beautiful CLI, JSON, and Slack reports with key performance metrics.
 
 ## Features
 
-- **Multiple Report Formats**: HTML, PDF, CSV, JSON, and CLI output
+- **Multiple Report Formats**: CLI output, JSON, and Slack integration
 - **InfluxDB 2 Integration**: Query test metrics directly from InfluxDB
-- **Key Metrics**: Response time percentiles (p50, p95, p99), throughput, error rates, and error breakdown
-- **Professional Reports**: Beautiful, interactive HTML reports with responsive design
+- **Key Metrics**: RPS, HTTP requests, checks, error rates, latencies, and more
+- **Real-time Slack Notifications**: Send formatted test reports directly to Slack channels
 - **CLI Tool**: Command-line interface for automated report generation
 - **Library Support**: Use as a TypeScript/JavaScript library in your own tools
 
@@ -20,12 +20,11 @@ npm install
 # Build the project
 npm run build
 
-# Generate an HTML report
+# Generate a CLI report for the last hour
 npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format html
+  --run-id 123456790121 \
+  -st -1h \
+  --format cli
 ```
 
 ## Installation
@@ -35,213 +34,122 @@ npm install
 npm run build
 ```
 
-## Usage
+## Configuration
 
-### As a CLI Tool
+Configuration can be provided via config file (`.config.json`) or environment variables. Environment variables take precedence over config file values.
 
-#### HTML Report
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format html
-```
+### Config File (.config.json)
 
-Generates a beautiful, interactive HTML report with:
-- Color-coded performance metric cards
-- Responsive design that works on all devices
-- Executive summary section
-- Detailed error breakdown table
-- Professional styling with gradient headers
-
-#### PDF Report
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format pdf
-```
-
-Creates a printable PDF version of the HTML report for archival and sharing.
-
-#### CSV Report
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format csv
-```
-
-Exports metrics in CSV format for import into Excel, Google Sheets, or data analysis tools.
-
-Example CSV output:
-```
-k6 Performance Test Report
-Test Name,api-load-test
-Generated,2024-01-01T12:00:00Z
-
-RESPONSE TIME METRICS
-Metric,Value (ms)
-P50,125.45
-P95,385.67
-P99,892.34
-
-THROUGHPUT & REQUESTS
-Metric,Value
-Throughput (req/s),156.23
-Total Requests,10000
-Successful Requests,9950
-Failed Requests,50
-Error Rate (%),0.50
-
-ERROR BREAKDOWN
-Error Type,Count
-ConnectionError,30
-TimeoutError,15
-HTTPError500,5
-```
-
-#### JSON Report
-```bash
-npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
-  --format json
-```
-
-Generates machine-readable JSON for programmatic access:
 ```json
 {
-  "testName": "api-load-test",
-  "generatedAt": "2024-01-01T12:00:00Z",
-  "metrics": {
-    "responseTime": {
-      "p50": 125.45,
-      "p95": 385.67,
-      "p99": 892.34
-    },
-    "throughput": {
-      "requestsPerSecond": 156.23
-    },
-    "requests": {
-      "total": 10000,
-      "successful": 9950,
-      "failed": 50,
-      "errorRate": 0.50
-    },
-    "errors": {
-      "ConnectionError": 30,
-      "TimeoutError": 15,
-      "HTTPError500": 5
-    }
+  "influx": {
+    "url": "http://localhost:8086",
+    "token": "${INFLUX_TOKEN}",
+    "org": "my-org",
+    "bucket": "k6"
+  },
+  "slack": {
+    "token": "${SLACK_TOKEN}",
+    "channel": "#k6-reports"
   }
 }
 ```
 
-#### CLI Output
+### Environment Variables
+
+```bash
+# InfluxDB Configuration (required)
+export INFLUX_URL=http://localhost:8086
+export INFLUX_TOKEN=your-influx-token
+export INFLUX_ORG=your-org
+export INFLUX_BUCKET=k6
+
+# Slack Configuration (optional)
+export SLACK_TOKEN=xoxb-your-slack-token
+export SLACK_CHANNEL=#k6-reports
+```
+
+**Note:** Environment variables support `${ENV_VAR}` references in config file (e.g., `"token": "${INFLUX_TOKEN}"`).
+
+## Usage
+
+### As a CLI Tool
+
+#### CLI Output (Default)
+
+Display formatted report in terminal:
+
 ```bash
 npx tsx src/cli.ts generate \
-  --scenario api-load-test \
-  --start-time "2024-01-01T00:00:00Z" \
-  --end-time "2024-01-01T01:00:00Z" \
+  --run-id 123456790121 \
+  --start-time "-1h" \
   --format cli
 ```
 
-Displays a pretty-printed table in your terminal:
-```
-━━━ k6 Performance Test Report ━━━
+Output includes:
+- Run ID, start/end times
+- Check pass rate with status
+- RPS metrics (avg, p95, max)
+- HTTP requests count and rate
+- Request duration metrics
+- Virtual users info
+- Top slowest URLs
+- RPS per URL
+- Error requests breakdown
+- Error responses with error types
 
-Test: api-load-test
-Generated: 1/1/2024, 12:00:00 PM
+#### JSON Report
 
-📊 Response Times
-┌────────┬───────────┐
-│ Metric │ Value     │
-├────────┼───────────┤
-│ P50    │ 125.45 ms │
-│ P95    │ 385.67 ms │
-│ P99    │ 892.34 ms │
-└────────┴───────────┘
-
-⚡ Throughput & Requests
-┌──────────────────────┬──────────┐
-│ Metric               │ Value    │
-├──────────────────────┼──────────┤
-│ Throughput           │ 156.23 req/s │
-│ Total Requests       │ 10000    │
-│ Successful Requests  │ 9950     │
-│ Failed Requests      │ 50       │
-└──────────────────────┴──────────┘
-
-❌ Error Analysis
-┌────────────┬─────────┐
-│ Metric     │ Value   │
-├────────────┼─────────┤
-│ Error Rate │ 0.50 %  │
-└────────────┴─────────┘
-
-Overall Status: ✓ PASS
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```bash
+npx tsx src/cli.ts generate \
+  --run-id 123456790121 \
+  --start-time "-1h" \
+  --format json \
+  --output report.json
 ```
 
-### As a Library
+Generates machine-readable JSON with all metrics for programmatic access and CI/CD integration.
 
-```typescript
-import {
-  InfluxQueryClient,
-  ReportGenerator,
-  CLIReporter,
-} from "k6-perf-reporter";
+#### Slack Report
 
-const influxConfig = {
-  url: "http://localhost:8086",
-  token: "your-token",
-  org: "your-org",
-  bucket: "k6",
-};
+Send formatted report directly to Slack:
 
-const influxClient = new InfluxQueryClient(influxConfig);
-const reportGenerator = new ReportGenerator(influxClient);
+```bash
+# Via config file (recommended)
+npx tsx src/cli.ts generate \
+  --run-id 123456790121 \
+  --start-time "-1h" \
+  --format slack
 
-// Generate metrics for the last hour
-const metrics = await reportGenerator.generateMetrics(
-  "api-load-test",
-  "-1h",
-  "now()"
-);
-
-// Print to CLI
-const cliReporter = new CLIReporter();
-cliReporter.printMetricsTable(metrics, "api-load-test");
-
-// Or generate formatted reports
-const htmlReport = reportGenerator.generateHTMLReport(metrics, "api-load-test");
-const jsonReport = reportGenerator.generateJSONReport(metrics, "api-load-test");
-const csvReport = reportGenerator.generateCSVReport(metrics, "api-load-test");
-
-// Save to file
-import fs from "fs";
-fs.writeFileSync("report.html", htmlReport);
-fs.writeFileSync("report.json", jsonReport);
-fs.writeFileSync("report.csv", csvReport);
+# Or via environment variables
+SLACK_TOKEN=xoxb-... SLACK_CHANNEL=#k6-reports npx tsx src/cli.ts generate \
+  --run-id 123456790121 \
+  --start-time "-1h" \
+  --format slack
 ```
 
-## Metrics Included
+Slack message includes:
+- Pass/Fail status with emoji (✅ PASS / ❌ FAIL)
+- Key metrics (RPS, HTTP requests, iterations, VUs, duration)
+- Error rate and failed checks
+- Tables for:
+  - Top slowest URLs
+  - RPS per URL
+  - Error requests
+  - Error responses with error types
 
-- **Response Times**: p50, p95, p99 percentiles (milliseconds)
-- **Throughput**: Requests per second
-- **Requests**: Total, successful, and failed counts
-- **Error Rate**: Percentage of failed requests
-- **Error Breakdown**: Distribution of error types with counts
+### Command Options
 
-## Time Format Examples
+```
+--run-id <id>              k6 test run ID (required)
+-st, --start-time <time>   Start time (relative: -1h, -30m, or ISO 8601)
+-et, --end-time <time>     End time (ISO 8601 format, defaults to now)
+-c, --config <path>        Path to config file (default: .config.json)
+-f, --format <format>      Output format: 'json', 'cli', or 'slack' (default: cli)
+-o, --output <path>        Output file path (for json format)
+```
 
-For InfluxDB time queries, use relative or absolute formats:
+### Time Format Examples
 
 ```bash
 # Last hour
@@ -250,56 +158,99 @@ For InfluxDB time queries, use relative or absolute formats:
 # Last 24 hours
 --start-time "-24h" --end-time "now()"
 
-# Specific date range (ISO 8601)
---start-time "2024-01-01T00:00:00Z" --end-time "2024-01-02T00:00:00Z"
-
 # Last 30 minutes
 --start-time "-30m" --end-time "now()"
+
+# Specific date range (ISO 8601)
+--start-time "2024-01-01T00:00:00Z" --end-time "2024-01-02T00:00:00Z"
 ```
 
-## Environment Variables
+## Metrics Included
 
-You can configure InfluxDB settings via environment variables. They can be used in two ways:
+### Response Time
+- Min, max, average
+- Percentiles: p50, p90, p95, p99
+- Both overall and for successful responses only
 
-### 1. Complete Configuration via Environment Variables
+### Throughput & Requests
+- Requests per second (RPS)
+- Total, successful, and failed request counts
+- Request rate
 
-Set all four variables to use environment-only configuration:
+### Checks
+- Pass rate percentage
+- Passed and failed check counts
+
+### Error Analysis
+- Error response count and rate
+- Top error requests by status code
+- Error responses grouped by type
+
+### Performance Metrics
+- Iteration duration (min, max, avg, p90, p95)
+- Virtual users (current, min, max)
+
+## Configuration Loading Priority
+
+For each configuration value, the system checks in this order:
+
+1. **Environment variables** (highest priority)
+   - `INFLUX_URL`, `INFLUX_TOKEN`, `INFLUX_ORG`, `INFLUX_BUCKET`
+   - `SLACK_TOKEN`, `SLACK_CHANNEL`
+
+2. **Config file values**
+   - `.config.json` or custom path via `-c` option
+
+3. **Environment variable references in config**
+   - Syntax: `"${ENV_VAR_NAME}"`
+   - Example: `"token": "${INFLUX_TOKEN}"`
+
+**Example:** Using production token via env var while keeping other settings in config file
 
 ```bash
-export INFLUX_URL=http://localhost:8086
-export INFLUX_TOKEN=your-influx-token
-export INFLUX_ORG=your-org
-export INFLUX_BUCKET=k6
+export INFLUX_TOKEN=prod-token
+npx tsx src/cli.ts generate --run-id 123 --format cli
+# Uses prod-token but other influx settings from .config.json
 ```
 
-Then run the CLI without needing a config file:
-```bash
-npx tsx src/cli.ts generate \
-  --run-id 123456790121 \
-  --start-time "-1h" \
-  --end-time "now()" \
-  --format cli
-```
+## Full Example Workflow
 
-### 2. Override Specific Values from Config File
-
-You can also use environment variables to override individual settings from `.config.json`:
+1. **Configure InfluxDB and Slack:**
 
 ```bash
-# .config.json exists with default settings
-export INFLUX_TOKEN=production-token
+# Create .config.json
+cat > .config.json << EOF
+{
+  "influx": {
+    "url": "http://localhost:8086",
+    "token": "\${INFLUX_TOKEN}",
+    "org": "my-org",
+    "bucket": "k6"
+  },
+  "slack": {
+    "token": "\${SLACK_TOKEN}",
+    "channel": "#k6-reports"
+  }
+}
+EOF
 
-# Now the CLI will use the token from env var while other settings come from .config.json
-npx tsx src/cli.ts generate --run-id 123456790121 --format cli
+# Set environment variables
+export INFLUX_TOKEN=your-token
+export SLACK_TOKEN=xoxb-your-slack-token
 ```
 
-**Note:** Environment variables always take precedence over values in `.config.json`.
+2. **Generate reports:**
 
-## Prerequisites
+```bash
+# CLI report
+npx tsx src/cli.ts generate --run-id 123456 -st -1h --format cli
 
-- Node.js 16+
-- InfluxDB 2.x with k6 test data
-- For PDF generation: Puppeteer (included in dependencies)
+# Save as JSON
+npx tsx src/cli.ts generate --run-id 123456 -st -1h --format json -o report.json
+
+# Send to Slack
+npx tsx src/cli.ts generate --run-id 123456 -st -1h --format slack
+```
 
 ## InfluxDB Setup
 
@@ -328,100 +279,11 @@ export default function () {
 ```
 
 Run with InfluxDB output:
+
 ```bash
 k6 run script.js \
-  -o xk6-influxdb=http://localhost:8086/testdata \
+  -o xk6-influxdb=http://localhost:8086/k6 \
   --tag testName=api-load-test
-```
-
-## Full Example Workflow
-
-1. **Run your k6 test with InfluxDB output:**
-```bash
-k6 run load-test.js \
-  -o xk6-influxdb=http://localhost:8086/k6db \
-  --tag testName=checkout-flow-test
-```
-
-2. **Wait for test to complete, then generate reports:**
-```bash
-# Generate HTML report
-npx tsx src/cli.ts generate \
-  --url http://localhost:8086 \
-  --token your-token \
-  --org your-org \
-  --bucket k6db \
-  --test-name checkout-flow-test \
-  --start-time "-30m" \
-  --end-time "now()" \
-  --format html \
-  --output reports/checkout-flow-test.html
-
-# Generate JSON for CI/CD integration
-npx tsx src/cli.ts generate \
-  --url http://localhost:8086 \
-  --token your-token \
-  --org your-org \
-  --bucket k6db \
-  --test-name checkout-flow-test \
-  --start-time "-30m" \
-  --end-time "now()" \
-  --format json \
-  --output reports/checkout-flow-test.json
-
-# Generate CSV for spreadsheet analysis
-npx tsx src/cli.ts generate \
-  --url http://localhost:8086 \
-  --token your-token \
-  --org your-org \
-  --bucket k6db \
-  --test-name checkout-flow-test \
-  --start-time "-30m" \
-  --end-time "now()" \
-  --format csv \
-  --output reports/checkout-flow-test.csv
-
-# Print summary to terminal
-npx tsx src/cli.ts generate \
-  --url http://localhost:8086 \
-  --token your-token \
-  --org your-org \
-  --bucket k6db \
-  --test-name checkout-flow-test \
-  --start-time "-30m" \
-  --end-time "now()" \
-  --format cli
-```
-
-3. **Integrate with CI/CD:**
-```bash
-#!/bin/bash
-# ci-report.sh
-
-TEST_NAME="production-api-test"
-START_TIME="-1h"
-END_TIME="now()"
-
-# Generate report
-npx tsx src/cli.ts generate \
-  --url $INFLUX_URL \
-  --token $INFLUX_TOKEN \
-  --org $INFLUX_ORG \
-  --bucket $INFLUX_BUCKET \
-  --scenario $TEST_NAME \
-  --start-time $START_TIME \
-  --end-time $END_TIME \
-  --format json \
-  --output test-results.json
-
-# Parse and check thresholds
-ERROR_RATE=$(jq '.metrics.requests.errorRate' test-results.json)
-if (( $(echo "$ERROR_RATE > 5.0" | bc -l) )); then
-  echo "Error rate too high: $ERROR_RATE%"
-  exit 1
-fi
-
-echo "Test passed! Error rate: $ERROR_RATE%"
 ```
 
 ## Development
@@ -441,18 +303,58 @@ npm run build
 
 # Development mode
 npm run dev
+
+# Run example
+npm run report:example
 ```
 
 ## Architecture
 
 ```
 src/
-├── influx.ts          # InfluxDB client and query logic
-├── reports.ts         # Report generation (HTML, CSV, JSON)
-├── cli-reporter.ts    # CLI table formatting
-├── cli.ts             # Command-line interface
-└── index.ts           # Library exports
+├── config.ts               # Unified config loading (Influx + Slack)
+├── data-collector.ts       # Data collection from InfluxDB
+├── influx-client.ts        # InfluxDB client
+├── influx-data-extractor.ts # Metric extraction
+├── reporters/
+│   ├── cli-reporter.ts     # CLI table formatting
+│   ├── json-reporter.ts    # JSON export
+│   ├── slack-reporter.ts   # Slack integration
+│   └── index.ts            # Reporter exports
+├── cli.ts                  # Command-line interface
+└── index.ts                # Library exports
 ```
+
+## Error Handling
+
+### Missing Configuration
+
+If required configuration is missing, the CLI will provide a helpful error message:
+
+```
+Error: InfluxDB configuration is incomplete. 
+Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET via environment variables or config file.
+```
+
+### Slack Configuration
+
+Slack integration is optional. If not configured, Slack format option will error:
+
+```
+Error: Slack token not configured. Set SLACK_TOKEN environment variable or configure in config file.
+```
+
+Channel is required if Slack is configured:
+
+```
+Error: Slack channel is required and cannot be empty.
+```
+
+## Prerequisites
+
+- Node.js 16+
+- InfluxDB 2.x with k6 test data
+- For Slack integration: Slack workspace with bot token
 
 ## License
 

@@ -4,5 +4,9 @@
     "token": "${INFLUX_TOKEN}",
     "org": "my-org",
     "bucket": "k6"
+  },
+  "slack": {
+    "token": "${SLACK_TOKEN}",
+    "channel": "#k6-reports"
   }
 }

@@ -3,13 +3,13 @@
 import { program } from "commander";
 import { Config } from "./config";
 import { DataCollector } from "./data-collector";
-import { JsonReporter, CliReporter } from "./reporters";
+import { JsonReporter, CliReporter, SlackReporter } from "./reporters";
 
 function main(): void {
   program
     .name("k6-reporter")
     .description("Generate CLI reports from k6 tests stored in InfluxDB")
-    .version("1.0.0");
+    .version("1.6.0");
 
   program
     .command("generate")
@@ -18,11 +18,11 @@ function main(): void {
     .option("-st, --start-time <time>", "Start time in ISO 8601 format or relative like '-1h'")
     .option("-et, --end-time <time>", "End time in ISO 8601 format (defaults to now)")
     .option("-c, --config <path>", "Path to config file", ".config.json")
-    .option("-f, --format <format>", "Output format: 'json' or 'cli'", "cli")
+    .option("-f, --format <format>", "Output format: 'json', 'cli', or 'slack'", "cli")
     .option("-o, --output <path>", "Output file path (for json format)")
     .action(async (options) => {
       try {
-        const config = Config.getInstance(options.config).getConfig();
+        const config = Config.getInstance(options.config).getInfluxConfig();
         const collector = new DataCollector(config);
         const report = await collector.collect(
           options.runId,
@@ -33,6 +33,14 @@ function main(): void {
         if (options.format === "json") {
           const jsonReporter = new JsonReporter();
           jsonReporter.report(report, options.output);
+        } else if (options.format === "slack") {
+          const slackConfig = Config.getInstance(options.config).getSlackConfig();
+          if (!slackConfig) {
+            throw new Error("Slack token not configured. Set SLACK_TOKEN environment variable or configure in config file.");
+          }
+          const slackReporter = new SlackReporter(slackConfig.token, slackConfig.channel);
+          await slackReporter.report(report);
+          console.log("Report sent to Slack");
         } else {
           const cliReporter = new CliReporter();
           cliReporter.report(report);
@@ -65,7 +73,7 @@ OPTIONS:
   -st, --start-time       Start time (relative: -1h, -30m, or ISO 8601)
   -et, --end-time         End time (ISO 8601 format, defaults to now)
   -c, --config            Path to config file (default: .config.json)
-  -f, --format            Output format: 'json' or 'cli' (default: cli)
+  -f, --format            Output format: 'json', 'cli', or 'slack' (default: cli)
   -o, --output            Output file path (for json format)
   -h, --help              Show command help
   -V, --version           Show version
@@ -84,10 +92,13 @@ EXAMPLES:
   4. Save JSON report to file:
      k6-reporter generate --run-id 123456790121 --format json -o report.json
 
-  5. Use custom config file:
+  5. Send report to Slack:
+     SLACK_TOKEN=xoxb-... k6-reporter generate --run-id 123456790121 --format slack
+
+  6. Use custom config file:
      k6-reporter generate --run-id 123456790121 -c /path/to/config.json
 
-  6. Get help for generate command:
+  7. Get help for generate command:
      k6-reporter generate --help
 
 TIME FORMAT:

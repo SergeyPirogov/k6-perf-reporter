@@ -8,60 +8,98 @@ export interface InfluxConfig {
   bucket: string;
 }
 
+export interface SlackConfig {
+  token: string;
+  channel: string;
+}
+
+interface RawConfig {
+  influx?: Record<string, unknown>;
+  slack?: Record<string, unknown>;
+}
+
 export class Config {
   private static instance: Config;
-  private config: InfluxConfig;
+  private influxConfig: InfluxConfig;
+  private slackConfig: SlackConfig | null = null;
+  private configPath: string;
 
   private constructor(configPath?: string) {
-    this.config = this.loadConfig(configPath);
+    this.configPath = configPath || ".config.json";
+    const rawConfig = this.loadRawConfig();
+    this.influxConfig = this.parseInfluxConfig(rawConfig.influx);
+    this.slackConfig = this.parseSlackConfig(rawConfig.slack);
   }
 
-  private loadConfig(configPath?: string): InfluxConfig {
-    // Try to load from JSON file first
-    const filePath = configPath || ".config.json";
-    const fullPath = path.resolve(filePath);
-    let config: InfluxConfig;
+  private loadRawConfig(): RawConfig {
+    const fullPath = path.resolve(this.configPath);
 
+    // Load from config file if it exists
     if (fs.existsSync(fullPath)) {
-      const data = JSON.parse(fs.readFileSync(fullPath, "utf-8"));
-      config = data.influx;
-    } else {
-      // If file doesn't exist, try to load from env vars
-      const envConfig = this.loadFromEnv();
-      if (!envConfig) {
-        throw new Error(
-          `Config file not found at ${fullPath} and no environment variables set. ` +
-          `Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET or provide a config file.`
-        );
+      try {
+        return JSON.parse(fs.readFileSync(fullPath, "utf-8")) as RawConfig;
+      } catch (error) {
+        throw new Error(`Failed to parse config file at ${fullPath}: ${error instanceof Error ? error.message : String(error)}`);
       }
-      return envConfig;
     }
 
-    // Override with environment variables if they exist
-    return this.overrideWithEnv(config);
+    return {};
   }
 
-  private loadFromEnv(): InfluxConfig | null {
-    const url = process.env.INFLUX_URL;
-    const token = process.env.INFLUX_TOKEN;
-    const org = process.env.INFLUX_ORG;
-    const bucket = process.env.INFLUX_BUCKET;
+  private parseInfluxConfig(rawConfig: Record<string, unknown> | undefined): InfluxConfig {
+    const url = this.resolveValue(rawConfig?.url as string | undefined, "INFLUX_URL");
+    const token = this.resolveValue(rawConfig?.token as string | undefined, "INFLUX_TOKEN");
+    const org = this.resolveValue(rawConfig?.org as string | undefined, "INFLUX_ORG");
+    const bucket = this.resolveValue(rawConfig?.bucket as string | undefined, "INFLUX_BUCKET");
 
-    // Only return if all env vars are set
-    if (url && token && org && bucket) {
-      return { url, token, org, bucket };
+    if (!url || !token || !org || !bucket) {
+      throw new Error(
+        "InfluxDB configuration is incomplete. " +
+        "Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET via environment variables or config file."
+      );
     }
 
-    return null;
+    return { url, token, org, bucket };
   }
 
-  private overrideWithEnv(config: InfluxConfig): InfluxConfig {
-    return {
-      url: process.env.INFLUX_URL || config.url,
-      token: process.env.INFLUX_TOKEN || config.token,
-      org: process.env.INFLUX_ORG || config.org,
-      bucket: process.env.INFLUX_BUCKET || config.bucket,
-    };
+  private parseSlackConfig(rawConfig: Record<string, unknown> | undefined): SlackConfig | null {
+    if (!rawConfig) {
+      return null;
+    }
+
+    const token = this.resolveValue(rawConfig.token as string | undefined, "SLACK_TOKEN");
+    if (!token) {
+      return null;
+    }
+
+    const channel = (rawConfig.channel as string | undefined)?.trim() || process.env.SLACK_CHANNEL?.trim();
+    if (!channel) {
+      throw new Error("Slack channel is required and cannot be empty. Set via config file or SLACK_CHANNEL environment variable.");
+    }
+
+    return { token, channel };
+  }
+
+  private resolveValue(configValue: string | undefined, envVar: string): string | null {
+    // First check environment variable
+    const envValue = process.env[envVar];
+    if (envValue) {
+      return envValue;
+    }
+
+    // Then check config value
+    if (!configValue) {
+      return null;
+    }
+
+    // Handle environment variable references like ${ENV_VAR}
+    if (configValue.startsWith("${") && configValue.endsWith("}")) {
+      const varName = configValue.slice(2, -1);
+      return process.env[varName] || null;
+    }
+
+    // Return config value directly
+    return configValue;
   }
 
   static getInstance(configPath?: string): Config {
@@ -71,7 +109,11 @@ export class Config {
     return Config.instance;
   }
 
-  getConfig(): InfluxConfig {
-    return this.config;
+  getInfluxConfig(): InfluxConfig {
+    return this.influxConfig;
+  }
+
+  getSlackConfig(): SlackConfig | null {
+    return this.slackConfig;
   }
 }
