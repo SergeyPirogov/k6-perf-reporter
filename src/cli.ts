@@ -3,7 +3,7 @@
 import { program } from "commander";
 import { Config } from "./config";
 import { DataCollector } from "./data-collector";
-import { JsonReporter, CliReporter, SlackReporter } from "./reporters";
+import { JsonReporter, CliReporter, SlackReporter, MarkdownReporter } from "./reporters";
 
 function main(): void {
   program
@@ -18,7 +18,7 @@ function main(): void {
     .option("-st, --start-time <time>", "Start time in ISO 8601 format or relative like '-1h'")
     .option("-et, --end-time <time>", "End time in ISO 8601 format (defaults to now)")
     .option("-c, --config <path>", "Path to config file", ".config.json")
-    .option("-f, --format <format>", "Output format: 'json', 'cli', or 'slack'", "cli")
+    .option("-f, --format <format>", "Output format: 'json', 'cli', 'markdown', or 'slack'", "cli")
     .option("-o, --output <path>", "Output file path (for json format)")
     .action(async (options) => {
       try {
@@ -33,6 +33,9 @@ function main(): void {
         if (options.format === "json") {
           const jsonReporter = new JsonReporter();
           jsonReporter.report(report, options.output);
+        } else if (options.format === "markdown") {
+          const markdownReporter = new MarkdownReporter();
+          markdownReporter.report(report, options.output);
         } else if (options.format === "slack") {
           const slackConfig = Config.getInstance(options.config).getSlackConfig();
           if (!slackConfig) {
@@ -73,8 +76,8 @@ OPTIONS:
   -st, --start-time       Start time (relative: -1h, -30m, or ISO 8601)
   -et, --end-time         End time (ISO 8601 format, defaults to now)
   -c, --config            Path to config file (default: .config.json)
-  -f, --format            Output format: 'json', 'cli', or 'slack' (default: cli)
-  -o, --output            Output file path (for json format)
+  -f, --format            Output format: 'json', 'cli', 'markdown', or 'slack' (default: cli)
+  -o, --output            Output file path (for json and markdown formats)
   -h, --help              Show command help
   -V, --version           Show version
 
@@ -92,13 +95,16 @@ EXAMPLES:
   4. Save JSON report to file:
      k6-reporter generate --run-id 123456790121 --format json -o report.json
 
-  5. Send report to Slack:
+  5. Generate Markdown report and save to file:
+     k6-reporter generate --run-id 123456790121 --format markdown -o report.md
+
+  6. Send report to Slack:
      SLACK_TOKEN=xoxb-... k6-reporter generate --run-id 123456790121 --format slack
 
-  6. Use custom config file:
+  7. Use custom config file:
      k6-reporter generate --run-id 123456790121 -c /path/to/config.json
 
-  7. Get help for generate command:
+  8. Get help for generate command:
      k6-reporter generate --help
 
 TIME FORMAT:

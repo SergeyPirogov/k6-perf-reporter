@@ -1,13 +1,14 @@
 # k6-perf-reporter
 
-A comprehensive reporting tool for k6 performance tests with InfluxDB 2 integration. Generates beautiful CLI, JSON, and Slack reports with key performance metrics.
+A comprehensive reporting tool for k6 performance tests with InfluxDB 2 integration. Generates beautiful CLI, JSON, Markdown, and Slack reports with key performance metrics.
 
 ## Features
 
-- **Multiple Report Formats**: CLI output, JSON, and Slack integration
+- **Multiple Report Formats**: CLI output, JSON, Markdown, and Slack integration
 - **InfluxDB 2 Integration**: Query test metrics directly from InfluxDB
 - **Key Metrics**: RPS, HTTP requests, checks, error rates, latencies, and more
 - **Real-time Slack Notifications**: Send formatted test reports directly to Slack channels
+- **Markdown Reports**: Generate exportable markdown files for documentation and archiving
 - **CLI Tool**: Command-line interface for automated report generation
 - **Library Support**: Use as a TypeScript/JavaScript library in your own tools
 
@@ -138,6 +139,30 @@ Slack message includes:
   - Error requests
   - Error responses with error types
 
+#### Markdown Report
+
+Generate a markdown file for documentation, wikis, or archiving:
+
+```bash
+npx tsx src/cli.ts generate \
+  --run-id 123456790121 \
+  --start-time "-1h" \
+  --format markdown \
+  --output report.md
+```
+
+Markdown report includes:
+- Formatted header with run ID, start/end times
+- Summary with pass/fail status and key metrics table
+- Metrics section with all performance data
+- Tables for:
+  - Top slowest URLs
+  - RPS per URL
+  - Error requests
+  - Error responses with error types
+
+See [example markdown report](examples/report.example.md) for output format.
+
 ### Command Options
 
 ```
@@ -145,8 +170,8 @@ Slack message includes:
 -st, --start-time <time>   Start time (relative: -1h, -30m, or ISO 8601)
 -et, --end-time <time>     End time (ISO 8601 format, defaults to now)
 -c, --config <path>        Path to config file (default: .config.json)
--f, --format <format>      Output format: 'json', 'cli', or 'slack' (default: cli)
--o, --output <path>        Output file path (for json format)
+-f, --format <format>      Output format: 'json', 'cli', 'markdown', or 'slack' (default: cli)
+-o, --output <path>        Output file path (for json and markdown formats)
 ```
 
 ### Time Format Examples
@@ -248,6 +273,9 @@ npx tsx src/cli.ts generate --run-id 123456 -st -1h --format cli
 # Save as JSON
 npx tsx src/cli.ts generate --run-id 123456 -st -1h --format json -o report.json
 
+# Save as Markdown
+npx tsx src/cli.ts generate --run-id 123456 -st -1h --format markdown -o report.md
+
 # Send to Slack
 npx tsx src/cli.ts generate --run-id 123456 -st -1h --format slack
 ```
@@ -319,6 +347,7 @@ src/
 ├── reporters/
 │   ├── cli-reporter.ts     # CLI table formatting
 │   ├── json-reporter.ts    # JSON export
+│   ├── markdown-reporter.ts # Markdown export
 │   ├── slack-reporter.ts   # Slack integration
 │   └── index.ts            # Reporter exports
 ├── cli.ts                  # Command-line interface
