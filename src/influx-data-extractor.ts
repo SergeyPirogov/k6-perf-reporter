@@ -3,16 +3,8 @@ import { InfluxConfig } from "./config";
 
 const percentile = (values: number[], p: number): number => {
   if (values.length === 0) return 0;
-  const index = (p / 100) * (values.length - 1);
-  const lower = Math.floor(index);
-  const upper = Math.ceil(index);
-  const weight = index - lower;
-
-  if (lower === upper) {
-    return values[lower];
-  }
-
-  return values[lower] * (1 - weight) + values[upper] * weight;
+  const index = Math.ceil((p / 100) * values.length) - 1;
+  return values[Math.max(0, index)];
 };
 
 export interface HttpReqsMetric {
