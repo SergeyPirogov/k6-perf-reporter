@@ -1,10 +1,12 @@
 import { WebClient } from "@slack/web-api";
+import { KnownBlock } from "@slack/types";
 import { ReporterResponse } from "../data-collector";
 import { table } from "table";
 
 export class SlackReporter {
   private client: WebClient;
   private channel: string;
+  private readonly MAX_BLOCKS_PER_MESSAGE = 50;
 
   constructor(token: string, channel: string) {
     this.client = new WebClient(token);
@@ -15,35 +17,47 @@ export class SlackReporter {
   }
 
   async report(data: ReporterResponse): Promise<void> {
-    const markdown = this.generateMarkdown(data);
-    await this.sendMessages(markdown);
+    const blocks = this.generateBlocks(data);
+    await this.sendMessages(blocks);
   }
 
-  private generateMarkdown(data: ReporterResponse): string {
+  private generateBlocks(data: ReporterResponse): KnownBlock[] {
     const reportData = data.data as Record<string, unknown>;
-    let markdown = "";
+    const blocks: KnownBlock[] = [];
 
-    // Header
-    markdown += `*k6 Performance Test Report*\n`;
-    markdown += `• *Run ID:* ${data.runId}\n`;
-    markdown += `• *Start:* ${data.startTime}\n`;
-    markdown += `• *End:* ${data.endTime}\n\n`;
+    blocks.push(...this.generateHeaderBlocks(data));
+    blocks.push(...this.generateMetricsBlocks(reportData));
+    blocks.push(...this.generateSummaryBlocks(reportData));
+    blocks.push(...this.generateTableBlocks(reportData));
 
-    // Summary section
-    markdown += this.generateSummary(reportData);
-
-    // Main metrics
-    markdown += this.generateMetrics(reportData);
-
-    // Tables
-    markdown += this.generateTables(reportData);
-
-    return markdown;
+    return blocks;
   }
 
-  private generateSummary(reportData: Record<string, unknown>): string {
-    let summary = "*Summary*\n";
+  private generateHeaderBlocks(data: ReporterResponse): KnownBlock[] {
+    return [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: "k6 Performance Test Report",
+        },
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: `*Run ID:* ${data.runId} | *Start:* ${data.startTime} | *End:* ${data.endTime}`,
+          },
+        ],
+      },
+      {
+        type: "divider",
+      },
+    ];
+  }
 
+  private generateSummaryBlocks(reportData: Record<string, unknown>): KnownBlock[] {
     let errorPercent = 0;
     let failedChecks = 0;
 
@@ -61,15 +75,22 @@ export class SlackReporter {
     const status = isSuccess ? "✓ PASS" : "✗ FAIL";
     const statusEmoji = isSuccess ? "✅" : "❌";
 
-    summary += `${statusEmoji} *${status}*\n\n`;
-    summary += `• Error Rate: ${errorPercent.toFixed(2)}%\n`;
-    summary += `• Failed Checks: ${failedChecks}\n\n`;
-
-    return summary;
+    return [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `${statusEmoji} *${status}* • Error Rate: ${errorPercent.toFixed(2)}%`,
+        },
+      },
+      {
+        type: "divider",
+      },
+    ];
   }
 
-  private generateMetrics(reportData: Record<string, unknown>): string {
-    let metrics = "*Metrics:*\n";
+  private generateMetricsBlocks(reportData: Record<string, unknown>): KnownBlock[] {
+    let metrics = "";
 
     if (reportData.checks) {
       const checks = reportData.checks as Record<string, number>;
@@ -82,22 +103,22 @@ export class SlackReporter {
       const avg = typeof rpsAgg.avg === "number" ? rpsAgg.avg : 0;
       const p95 = typeof rpsAgg.p95 === "number" ? rpsAgg.p95 : 0;
       const max = typeof rpsAgg.max === "number" ? rpsAgg.max : 0;
-      metrics += `• RPS: avg=${avg.toFixed(2)}, p(95)=${p95.toFixed(2)}, max=${max.toFixed(2)}\n`;
+      metrics += `• RPS: avg=${avg.toFixed(2)} · p95=${p95.toFixed(2)} · max=${max.toFixed(2)}\n`;
     }
 
     if (reportData.httpReqs) {
       const httpReqs = reportData.httpReqs as Record<string, number>;
-      metrics += `• HTTP Requests: ${httpReqs.total} (${httpReqs.rate.toFixed(6)}/s)\n`;
+      metrics += `• HTTP Requests: ${httpReqs.total} (${httpReqs.rate.toFixed(2)}/s)\n`;
     }
 
     if (reportData.iterations) {
       const iterations = reportData.iterations as Record<string, number>;
-      metrics += `• Iterations: ${iterations.total} (${iterations.rate.toFixed(6)}/s)\n`;
+      metrics += `• Iterations: ${iterations.total} (${iterations.rate.toFixed(2)}/s)\n`;
     }
 
     if (reportData.httpReqDuration) {
       const duration = reportData.httpReqDuration as Record<string, number>;
-      metrics += `• HTTP Duration: avg=${this.formatDuration(duration.avg || 0)}, p(95)=${this.formatDuration(duration.p95 || 0)}\n`;
+      metrics += `• HTTP Duration: avg=${this.formatDuration(duration.avg || 0)} · p95=${this.formatDuration(duration.p95 || 0)}\n`;
     }
 
     if (reportData.vus) {
@@ -105,23 +126,35 @@ export class SlackReporter {
       metrics += `• VUs: ${vus.current} (min=${vus.min}, max=${vus.max})\n`;
     }
 
-    metrics += "\n";
-    return metrics;
+    return [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Metrics*\n${metrics}`,
+        },
+      },
+    ];
   }
 
-  private generateTables(reportData: Record<string, unknown>): string {
-    let tables = "";
+  private generateTableBlocks(reportData: Record<string, unknown>): KnownBlock[] {
+    const blocks: KnownBlock[] = [];
 
     if (reportData.topSlowUrls) {
       const topSlowUrls = reportData.topSlowUrls as Record<string, unknown>;
       const urls = topSlowUrls.urls as Array<{ method: string; url: string; p95Duration: number }>;
       if (urls && urls.length > 0) {
-        tables += "*Top 10 Slowest URLs*\n";
         const tableData = [
           ["#", "Method", "URL", "p(95)"],
           ...urls.map((u, i) => [String(i + 1), u.method, u.url, this.formatDuration(u.p95Duration)]),
         ];
-        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
+        blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*Top 10 Slowest URLs*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
+          },
+        });
       }
     }
 
@@ -129,12 +162,17 @@ export class SlackReporter {
       const rpsPerUrl = reportData.rpsPerUrl as Record<string, unknown>;
       const urls = rpsPerUrl.urls as Array<{ method: string; url: string; count: number; rps: { avg: number; p95: number; max: number } }>;
       if (urls && urls.length > 0) {
-        tables += "*RPS per URL*\n";
         const tableData = [
           ["#", "Method", "URL", "Count", "avg", "p(95)", "max"],
           ...urls.map((u, i) => [String(i + 1), u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
         ];
-        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
+        blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*RPS per URL*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
+          },
+        });
       }
     }
 
@@ -142,12 +180,17 @@ export class SlackReporter {
       const successRequests = reportData.successRequests as Record<string, unknown>;
       const requests = successRequests.requests as Array<{ method: string; url: string; status: number; count: number; min: number; avg: number; p95: number }>;
       if (requests && requests.length > 0) {
-        tables += "*Top Successful Requests*\n";
         const tableData = [
           ["#", "Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
           ...requests.map((r, i) => [String(i + 1), r.method, r.url, String(r.status), String(r.count), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
         ];
-        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
+        blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*Top Successful Requests*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
+          },
+        });
       }
     }
 
@@ -155,12 +198,17 @@ export class SlackReporter {
       const errorRequests = reportData.errorRequests as Record<string, unknown>;
       const errors = errorRequests.errors as Array<{ method: string; url: string; status: number; count: number }>;
       if (errors && errors.length > 0) {
-        tables += "*Top Error Requests*\n";
         const tableData = [
           ["#", "Method", "URL", "Code", "Count"],
           ...errors.map((e, i) => [String(i + 1), e.method, e.url, String(e.status), String(e.count)]),
         ];
-        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
+        blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*Top Error Requests*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
+          },
+        });
       }
     }
 
@@ -186,7 +234,6 @@ export class SlackReporter {
           }
         });
 
-        tables += "*Error Responses*\n";
         const tableData = [
           ["#", "Method", "URL", "Status", "Error", "Count"],
           ...Array.from(groupedErrors.values()).map((r, i) => {
@@ -200,11 +247,17 @@ export class SlackReporter {
             return [String(i + 1), r.method, url, String(r.status), r.error, String(r.count)];
           }),
         ];
-        tables += "```\n" + this.formatTable(tableData) + "```\n\n";
+        blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*Error Responses*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
+          },
+        });
       }
     }
 
-    return tables;
+    return blocks;
   }
 
   private formatTable(tableData: string[][]): string {
@@ -251,52 +304,19 @@ export class SlackReporter {
     return `${(ms / 1000).toFixed(2)}s`;
   }
 
-  private async sendMessages(markdown: string): Promise<void> {
-    const MAX_BLOCK_LENGTH = 3000;
-    const messages = this.splitIntoMessages(markdown, MAX_BLOCK_LENGTH);
-
-    for (const message of messages) {
-      await this.sendMessage(message);
+  private async sendMessages(blocks: KnownBlock[]): Promise<void> {
+    for (let i = 0; i < blocks.length; i += this.MAX_BLOCKS_PER_MESSAGE) {
+      const messageBatch = blocks.slice(i, i + this.MAX_BLOCKS_PER_MESSAGE);
+      await this.sendMessage(messageBatch);
     }
   }
 
-  private splitIntoMessages(text: string, maxLength: number): string[] {
-    const messages: string[] = [];
-    const sections = text.split(/(\n\n)/);
-    let currentMessage = "";
-
-    for (const section of sections) {
-      if ((currentMessage + section).length <= maxLength) {
-        currentMessage += section;
-      } else {
-        if (currentMessage) {
-          messages.push(currentMessage);
-        }
-        currentMessage = section;
-      }
-    }
-
-    if (currentMessage) {
-      messages.push(currentMessage);
-    }
-
-    return messages;
-  }
-
-  private async sendMessage(markdown: string): Promise<void> {
+  private async sendMessage(blocks: KnownBlock[]): Promise<void> {
     try {
       await this.client.chat.postMessage({
         channel: this.channel,
         text: "k6 Performance Test Report",
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: markdown,
-            },
-          },
-        ],
+        blocks,
       });
     } catch (error) {
       throw new Error(`Failed to send Slack message: ${error instanceof Error ? error.message : String(error)}`);
