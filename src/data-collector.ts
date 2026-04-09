@@ -84,6 +84,10 @@ export class DataCollector {
     const errorResponsesText = await this.extractor.extractErrorResponsesText(runId, startTime, endTime);
     this.loader.success("Extracted error responses text");
 
+    this.loader.start("Extracting RPS aggregated (5s intervals)...");
+    const rpsAggregated = await this.extractor.extractRpsAggregated(runId, startTime, endTime);
+    this.loader.success("Extracted RPS aggregated");
+
     const reportData = {
       ...(typeof data === "object" && data !== null ? data : {}),
       httpReqs,
@@ -101,6 +105,7 @@ export class DataCollector {
       errorRequests,
       successRequests,
       errorResponsesText,
+      rpsAggregated,
     };
 
     return {

@@ -128,6 +128,16 @@ export interface ErrorResponsesTextMetric {
   responses: ErrorResponseMetric[];
 }
 
+export interface RpsAggregatedMetric {
+  dataPoints: Array<{
+    timestamp: string;
+    rps: number;
+  }>;
+  avg: number;
+  p95: number;
+  max: number;
+}
+
 export class InfluxDataExtractor {
   private client: InfluxClient;
   private config: InfluxConfig;
@@ -834,5 +844,53 @@ export class InfluxDataExtractor {
     }));
 
     return { responses };
+  }
+
+  async extractRpsAggregated(
+    runId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<RpsAggregatedMetric> {
+    const query = `
+      from(bucket: "${this.config.bucket}")
+        |> range(start: ${startTime}, stop: ${endTime})
+        |> filter(fn: (r) => r._measurement == "http_reqs" and r.runId == "${runId}")
+        |> keep(columns: ["_time"])
+    `;
+
+    const results = await this.client.queryData(query);
+
+    if (!results || results.length === 0) {
+      return { dataPoints: [], avg: 0, p95: 0, max: 0 };
+    }
+
+    // Group by 1-second windows
+    const windowMap = new Map<string, number>();
+
+    results.forEach((r) => {
+      const timestamp = new Date(r._time as string);
+      // Round down to nearest 1-second interval
+      const windowTime = new Date(timestamp);
+      windowTime.setMilliseconds(0);
+      const windowKey = windowTime.toISOString();
+
+      windowMap.set(windowKey, (windowMap.get(windowKey) || 0) + 1);
+    });
+
+    // Convert to RPS data points
+    const dataPoints = Array.from(windowMap.entries())
+      .map(([timestamp, count]) => ({
+        timestamp,
+        rps: count, // 1 second window = requests per second
+      }))
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    // Calculate statistics from RPS values
+    const rpsValues = dataPoints.map((dp) => dp.rps).sort((a, b) => a - b);
+    const avg = rpsValues.reduce((sum, val) => sum + val, 0) / rpsValues.length;
+    const max = rpsValues[rpsValues.length - 1];
+    const p95 = percentile(rpsValues, 95);
+
+    return { dataPoints, avg, p95, max };
   }
 }

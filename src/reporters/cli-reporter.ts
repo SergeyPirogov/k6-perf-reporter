@@ -28,6 +28,16 @@ export class CliReporter {
       );
     }
 
+    if (reportData.rpsAggregated) {
+      const rpsAgg = reportData.rpsAggregated as Record<string, unknown>;
+      const avg = typeof rpsAgg.avg === "number" ? rpsAgg.avg : 0;
+      const p95 = typeof rpsAgg.p95 === "number" ? rpsAgg.p95 : 0;
+      const max = typeof rpsAgg.max === "number" ? rpsAgg.max : 0;
+      console.log(
+        `rps${this.padRight("rps", 30)}: avg=${chalk.cyan(avg.toFixed(2))} p(95)=${chalk.cyan(p95.toFixed(2))} max=${chalk.cyan(max.toFixed(2))}`
+      );
+    }
+
     if (reportData.httpReqs) {
       const httpReqs = reportData.httpReqs as Record<string, number>;
       console.log(
