@@ -125,10 +125,10 @@ export class CliReporter {
         console.log("\nRPS per URL:");
         console.log("");
         const tableData = [
-          ["Method", "URL", "Count", "avg", "p(95)", "max"],
-          ...urls.map((u) => [u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
+          ["#", "Method", "URL", "Count", "avg", "p(95)", "max"],
+          ...urls.map((u, i) => [String(i + 1), u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
         ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" } } }));
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" }, 6: { alignment: "left" } } }));
       }
     }
 
