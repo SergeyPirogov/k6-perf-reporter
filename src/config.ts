@@ -72,7 +72,7 @@ export class Config {
       return null;
     }
 
-    const channel = (rawConfig.channel as string | undefined)?.trim() || process.env.SLACK_CHANNEL?.trim();
+    const channel = this.resolveValue(rawConfig.channel as string | undefined, "SLACK_CHANNEL");
     if (!channel) {
       throw new Error("Slack channel is required and cannot be empty. Set via config file or SLACK_CHANNEL environment variable.");
     }
@@ -90,12 +90,6 @@ export class Config {
     // Then check config value
     if (!configValue) {
       return null;
-    }
-
-    // Handle environment variable references like ${ENV_VAR}
-    if (configValue.startsWith("${") && configValue.endsWith("}")) {
-      const varName = configValue.slice(2, -1);
-      return process.env[varName] || null;
     }
 
     // Return config value directly
