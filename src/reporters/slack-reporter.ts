@@ -1,6 +1,5 @@
 import { WebClient } from "@slack/web-api";
 import { ReporterResponse } from "../data-collector";
-import { table } from "table";
 
 export class SlackReporter {
   private client: WebClient;
@@ -24,9 +23,10 @@ export class SlackReporter {
     let markdown = "";
 
     // Header
-    markdown += `\`\`\`\nRun ID: ${data.runId}\n`;
-    markdown += `Start: ${data.startTime}\n`;
-    markdown += `End: ${data.endTime}\n\`\`\`\n\n`;
+    markdown += `*k6 Performance Test Report*\n`;
+    markdown += `• *Run ID:* ${data.runId}\n`;
+    markdown += `• *Start:* ${data.startTime}\n`;
+    markdown += `• *End:* ${data.endTime}\n\n`;
 
     // Summary section
     markdown += this.generateSummary(reportData);
@@ -41,7 +41,7 @@ export class SlackReporter {
   }
 
   private generateSummary(reportData: Record<string, unknown>): string {
-    let summary = "";
+    let summary = "*Summary*\n";
 
     let errorPercent = 0;
     let failedChecks = 0;
@@ -60,7 +60,7 @@ export class SlackReporter {
     const status = isSuccess ? "✓ PASS" : "✗ FAIL";
     const statusEmoji = isSuccess ? "✅" : "❌";
 
-    summary += `${statusEmoji} *${status}*\n`;
+    summary += `${statusEmoji} *${status}*\n\n`;
     summary += `• Error Rate: ${errorPercent.toFixed(2)}%\n`;
     summary += `• Failed Checks: ${failedChecks}\n\n`;
 
@@ -115,13 +115,12 @@ export class SlackReporter {
       const topSlowUrls = reportData.topSlowUrls as Record<string, unknown>;
       const urls = topSlowUrls.urls as Array<{ method: string; url: string; p95Duration: number }>;
       if (urls && urls.length > 0) {
-        tables += "*Top 10 Slowest URLs:*\n```\n";
+        tables += "*Top 10 Slowest URLs*\n\n";
         const tableData = [
           ["#", "Method", "URL", "p(95)"],
           ...urls.map((u, i) => [String(i + 1), u.method, u.url, this.formatDuration(u.p95Duration)]),
         ];
-        tables += table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" } } });
-        tables += "```\n\n";
+        tables += this.tableToMarkdown(tableData) + "\n\n";
       }
     }
 
@@ -129,13 +128,12 @@ export class SlackReporter {
       const rpsPerUrl = reportData.rpsPerUrl as Record<string, unknown>;
       const urls = rpsPerUrl.urls as Array<{ method: string; url: string; count: number; rps: { avg: number; p95: number; max: number } }>;
       if (urls && urls.length > 0) {
-        tables += "*RPS per URL:*\n```\n";
+        tables += "*RPS per URL*\n\n";
         const tableData = [
           ["#", "Method", "URL", "Count", "avg", "p(95)", "max"],
           ...urls.map((u, i) => [String(i + 1), u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
         ];
-        tables += table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" }, 6: { alignment: "left" } } });
-        tables += "```\n\n";
+        tables += this.tableToMarkdown(tableData) + "\n\n";
       }
     }
 
@@ -143,13 +141,12 @@ export class SlackReporter {
       const successRequests = reportData.successRequests as Record<string, unknown>;
       const requests = successRequests.requests as Array<{ method: string; url: string; status: number; count: number; min: number; avg: number; p95: number }>;
       if (requests && requests.length > 0) {
-        tables += "*Top Successful Requests:*\n```\n";
+        tables += "*Top Successful Requests*\n\n";
         const tableData = [
           ["#", "Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
           ...requests.map((r, i) => [String(i + 1), r.method, r.url, String(r.status), String(r.count), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
         ];
-        tables += table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" }, 6: { alignment: "left" }, 7: { alignment: "left" } } });
-        tables += "```\n\n";
+        tables += this.tableToMarkdown(tableData) + "\n\n";
       }
     }
 
@@ -157,13 +154,12 @@ export class SlackReporter {
       const errorRequests = reportData.errorRequests as Record<string, unknown>;
       const errors = errorRequests.errors as Array<{ method: string; url: string; status: number; count: number }>;
       if (errors && errors.length > 0) {
-        tables += "*Top Error Requests:*\n```\n";
+        tables += "*Top Error Requests*\n\n";
         const tableData = [
           ["#", "Method", "URL", "Code", "Count"],
           ...errors.map((e, i) => [String(i + 1), e.method, e.url, String(e.status), String(e.count)]),
         ];
-        tables += table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" } } });
-        tables += "```\n\n";
+        tables += this.tableToMarkdown(tableData) + "\n\n";
       }
     }
 
@@ -189,7 +185,7 @@ export class SlackReporter {
           }
         });
 
-        tables += "*Error Responses:*\n```\n";
+        tables += "*Error Responses*\n\n";
         const tableData = [
           ["#", "Method", "URL", "Status", "Error", "Count"],
           ...Array.from(groupedErrors.values()).map((r, i) => {
@@ -203,12 +199,26 @@ export class SlackReporter {
             return [String(i + 1), r.method, url, String(r.status), r.error, String(r.count)];
           }),
         ];
-        tables += table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" } } });
-        tables += "```\n\n";
+        tables += this.tableToMarkdown(tableData) + "\n\n";
       }
     }
 
     return tables;
+  }
+
+  private tableToMarkdown(tableData: string[][]): string {
+    if (tableData.length === 0) {
+      return "";
+    }
+
+    const [headers, ...rows] = tableData;
+    let markdown = "| " + headers.join(" | ") + " |\n";
+    markdown += "|" + headers.map(() => " --- ").join("|") + "|\n";
+    rows.forEach((row) => {
+      markdown += "| " + row.join(" | ") + " |\n";
+    });
+
+    return markdown;
   }
 
   private formatDuration(ms: number): string {
