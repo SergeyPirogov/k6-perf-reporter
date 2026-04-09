@@ -38,20 +38,6 @@ export class CliReporter {
       );
     }
 
-    if (reportData.rpsPerUrl) {
-      const rpsPerUrl = reportData.rpsPerUrl as Record<string, unknown>;
-      const urls = rpsPerUrl.urls as Array<{ method: string; url: string; count: number; rps: { avg: number; p95: number; max: number } }>;
-      if (urls && urls.length > 0) {
-        console.log("\nRPS per URL:");
-        console.log("");
-        const tableData = [
-          ["Method", "URL", "Count", "avg", "p(95)", "max"],
-          ...urls.map((u) => [u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
-        ];
-        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" } } }));
-      }
-    }
-
     if (reportData.httpReqs) {
       const httpReqs = reportData.httpReqs as Record<string, number>;
       console.log(
@@ -129,6 +115,20 @@ export class CliReporter {
           ...urls.map((u) => [u.method, u.url, this.formatDuration(u.p95Duration)]),
         ];
         console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" } } }));
+      }
+    }
+
+    if (reportData.rpsPerUrl) {
+      const rpsPerUrl = reportData.rpsPerUrl as Record<string, unknown>;
+      const urls = rpsPerUrl.urls as Array<{ method: string; url: string; count: number; rps: { avg: number; p95: number; max: number } }>;
+      if (urls && urls.length > 0) {
+        console.log("\nRPS per URL:");
+        console.log("");
+        const tableData = [
+          ["Method", "URL", "Count", "avg", "p(95)", "max"],
+          ...urls.map((u) => [u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
+        ];
+        console.log(table(tableData, { border: { topBody: "─", topJoin: "", topLeft: "", topRight: "", bottomBody: "", bottomJoin: "", bottomLeft: "", bottomRight: "", bodyLeft: "", bodyRight: "", bodyJoin: "", joinBody: "─", joinLeft: "", joinRight: "", joinJoin: "" }, drawHorizontalLine: (index) => index === 1, columns: { 0: { alignment: "left" }, 1: { alignment: "left" }, 2: { alignment: "left" }, 3: { alignment: "left" }, 4: { alignment: "left" }, 5: { alignment: "left" } } }));
       }
     }
 
