@@ -34,6 +34,21 @@ export class SlackReporter {
   }
 
   private generateHeaderBlocks(data: ReporterResponse): KnownBlock[] {
+    const formatDate = (dateStr: string): string => {
+      try {
+        const date = new Date(dateStr);
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+        const day = String(date.getUTCDate()).padStart(2, "0");
+        const hours = String(date.getUTCHours()).padStart(2, "0");
+        const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+        const seconds = String(date.getUTCSeconds()).padStart(2, "0");
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      } catch {
+        return dateStr;
+      }
+    };
+
     return [
       {
         type: "header",
@@ -47,7 +62,7 @@ export class SlackReporter {
         elements: [
           {
             type: "mrkdwn",
-            text: `*Run ID:* ${data.runId} | *Start:* ${data.startTime} | *End:* ${data.endTime}`,
+            text: `*Run ID:* ${data.runId} | *Start:* ${formatDate(data.startTime)} | *End:* ${formatDate(data.endTime)}`,
           },
         ],
       },

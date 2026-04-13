@@ -115,8 +115,8 @@ export class DataCollector {
 
     return {
       runId,
-      startTime,
-      endTime,
+      startTime: duration.startTime || startTime,
+      endTime: duration.endTime || endTime,
       timestamp: new Date().toISOString(),
       data: reportData,
     };
