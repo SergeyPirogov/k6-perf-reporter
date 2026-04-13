@@ -87,8 +87,8 @@ export class SlackReporter {
     }
 
     const isSuccess = errorPercent < 1 && failedChecks === 0;
-    const status = isSuccess ? "✓ PASS" : "✗ FAIL";
-    const statusEmoji = isSuccess ? "✅" : "❌";
+    const status = isSuccess ? "PASS" : "FAIL";
+    const statusEmoji = isSuccess ? "✅" : ":triangular_flag_on_post:";
 
     return [
       {
@@ -106,6 +106,12 @@ export class SlackReporter {
 
   private generateMetricsBlocks(reportData: Record<string, unknown>): KnownBlock[] {
     let metrics = "";
+
+    if (reportData.duration) {
+      const duration = reportData.duration as Record<string, unknown>;
+      const durationSeconds = typeof duration.durationSeconds === "number" ? duration.durationSeconds : 0;
+      metrics += `• Test Duration: ${this.formatTestDuration(durationSeconds)}\n`;
+    }
 
     if (reportData.checks) {
       const checks = reportData.checks as Record<string, number>;
@@ -317,6 +323,15 @@ export class SlackReporter {
       return `${ms.toFixed(2)}ms`;
     }
     return `${(ms / 1000).toFixed(2)}s`;
+  }
+
+  private formatTestDuration(seconds: number): string {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    if (minutes === 0) {
+      return `${secs}s`;
+    }
+    return `${minutes}m ${secs}s`;
   }
 
   private async sendMessages(blocks: KnownBlock[]): Promise<void> {
