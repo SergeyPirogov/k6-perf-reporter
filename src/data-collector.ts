@@ -6,10 +6,8 @@ import {
   extractHttpReqDurationFromData,
   extractHttpReqDurationSuccessFromData,
   extractErrorResponsesFromData,
-  extractTopSlowUrlsFromData,
   extractErrorRequestsFromData,
-  extractSuccessRequestsFromData,
-  extractRpsPerUrlFromData,
+  extractRequestsFromData,
   extractRpsAggregatedFromData,
 } from "./metrics";
 import { Loader } from "./loader";
@@ -101,10 +99,8 @@ export class DataCollector {
     const httpReqDuration = extractHttpReqDurationFromData(httpReqDurationData);
     const httpReqDurationSuccess = extractHttpReqDurationSuccessFromData(httpReqDurationData);
     const errorResponses = extractErrorResponsesFromData(httpReqsData, duration);
-    const topSlowUrls = extractTopSlowUrlsFromData(httpReqDurationData);
-    const errorRequests = extractErrorRequestsFromData(httpReqsData);
-    const successRequests = extractSuccessRequestsFromData(httpReqDurationData);
-    const rpsPerUrl = extractRpsPerUrlFromData(httpReqsData);
+    const errorRequests = extractErrorRequestsFromData(httpReqsData, httpReqDurationData);
+    const requests = extractRequestsFromData(httpReqsData, httpReqDurationData);
     const rpsAggregated = extractRpsAggregatedFromData(httpReqsData);
 
     logger.info("DataCollector.collect: all metrics computed");
@@ -123,10 +119,8 @@ export class DataCollector {
       httpReqDurationSuccess,
       iterationDuration,
       errorResponses,
-      rpsPerUrl,
-      topSlowUrls,
+      requests,
       errorRequests,
-      successRequests,
       errorResponsesText,
       rpsAggregated,
     };

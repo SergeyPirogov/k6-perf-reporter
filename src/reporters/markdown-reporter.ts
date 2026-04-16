@@ -114,40 +114,14 @@ export class MarkdownReporter {
   private generateTables(reportData: Record<string, unknown>): string {
     let tables = "";
 
-    if (reportData.topSlowUrls) {
-      const topSlowUrls = reportData.topSlowUrls as Record<string, unknown>;
-      const urls = topSlowUrls.urls as Array<{ method: string; url: string; p95Duration: number }>;
-      if (urls && urls.length > 0) {
-        tables += "## Top 10 Slowest URLs\n\n";
-        const tableData = [
-          ["#", "Method", "URL", "p(95)"],
-          ...urls.map((u, i) => [String(i + 1), u.method, u.url, this.formatDuration(u.p95Duration)]),
-        ];
-        tables += this.tableToMarkdown(tableData) + "\n\n";
-      }
-    }
-
-    if (reportData.rpsPerUrl) {
-      const rpsPerUrl = reportData.rpsPerUrl as Record<string, unknown>;
-      const urls = rpsPerUrl.urls as Array<{ method: string; url: string; count: number; rps: { avg: number; p95: number; max: number } }>;
-      if (urls && urls.length > 0) {
-        tables += "## RPS per URL\n\n";
-        const tableData = [
-          ["#", "Method", "URL", "Count", "avg", "p(95)", "max"],
-          ...urls.map((u, i) => [String(i + 1), u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
-        ];
-        tables += this.tableToMarkdown(tableData) + "\n\n";
-      }
-    }
-
-    if (reportData.successRequests) {
-      const successRequests = reportData.successRequests as Record<string, unknown>;
-      const requests = successRequests.requests as Array<{ method: string; url: string; status: number; count: number; min: number; avg: number; p95: number }>;
+    if (reportData.requests) {
+      const requestsData = reportData.requests as Record<string, unknown>;
+      const requests = requestsData.requests as Array<{ method: string; url: string; status: number; count: number; rps: { avg: number; p95: number; max: number }; min: number; avg: number; p95: number }>;
       if (requests && requests.length > 0) {
-        tables += "## Top Successful Requests\n\n";
+        tables += "## Successful Requests\n\n";
         const tableData = [
-          ["#", "Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
-          ...requests.map((r, i) => [String(i + 1), r.method, r.url, String(r.status), String(r.count), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
+          ["#", "Method", "URL", "Status", "Count", "RPS avg", "RPS p(95)", "RPS max", "Min", "Avg", "p(95)"],
+          ...requests.map((r, i) => [String(i + 1), r.method, r.url, String(r.status), String(r.count), r.rps.avg.toFixed(2), r.rps.p95.toFixed(2), r.rps.max.toFixed(2), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
         ];
         tables += this.tableToMarkdown(tableData) + "\n\n";
       }
@@ -155,12 +129,12 @@ export class MarkdownReporter {
 
     if (reportData.errorRequests) {
       const errorRequests = reportData.errorRequests as Record<string, unknown>;
-      const errors = errorRequests.errors as Array<{ method: string; url: string; status: number; count: number }>;
+      const errors = errorRequests.errors as Array<{ method: string; url: string; status: number; count: number; min: number; avg: number; p95: number }>;
       if (errors && errors.length > 0) {
-        tables += "## Top Error Requests\n\n";
+        tables += "## Error Requests\n\n";
         const tableData = [
-          ["#", "Method", "URL", "Code", "Count"],
-          ...errors.map((e, i) => [String(i + 1), e.method, e.url, String(e.status), String(e.count)]),
+          ["#", "Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
+          ...errors.map((e, i) => [String(i + 1), e.method, e.url, String(e.status), String(e.count), this.formatDuration(e.min), this.formatDuration(e.avg), this.formatDuration(e.p95)]),
         ];
         tables += this.tableToMarkdown(tableData) + "\n\n";
       }
@@ -172,7 +146,7 @@ export class MarkdownReporter {
       if (responses && responses.length > 0) {
         tables += "## Error Responses\n\n";
         const tableData = [
-          ["#", "Method", "URL", "Status", "Error", "Count"],
+          ["#", "Method", "URL", "Error"],
           ...responses.map((r, i) => {
             let url = r.url;
             try {
@@ -181,7 +155,7 @@ export class MarkdownReporter {
             } catch {
               // If not a full URL, use as-is
             }
-            return [String(i + 1), r.method, url, String(r.status), r.error, String(r.count)];
+            return [String(i + 1), r.method, url, r.error];
           }),
         ];
         tables += this.tableToMarkdown(tableData) + "\n\n";

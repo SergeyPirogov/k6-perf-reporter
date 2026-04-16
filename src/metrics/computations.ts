@@ -8,11 +8,9 @@ import {
   HttpReqDurationMetric,
   HttpReqDurationSuccessMetric,
   ErrorResponsesMetric,
-  TopSlowUrlsMetric,
   ErrorRequestsMetric,
-  SuccessRequestsMetric,
   RpsAggregatedMetric,
-  RpsPerUrlMetric,
+  RequestsMetric,
 } from "../types";
 
 export const percentile = (values: number[], p: number): number => {
@@ -111,121 +109,87 @@ export function extractErrorResponsesFromData(
   return { count, rate };
 }
 
-export function extractTopSlowUrlsFromData(
-  data: HttpReqDurationRow[]
-): TopSlowUrlsMetric {
-  if (data.length === 0) {
-    logger.info("extractTopSlowUrls: no data found, returning empty list");
-    return { urls: [] };
-  }
-
-  const urlMap = new Map<string, { durations: number[]; method: string }>();
-
-  data.forEach((r) => {
-    const key = `${r.method} ${r.url}`;
-    if (!urlMap.has(key)) {
-      urlMap.set(key, { durations: [], method: r.method });
-    }
-    urlMap.get(key)!.durations.push(r._value);
-  });
-
-  const topUrls = Array.from(urlMap.entries())
-    .map(([key, data]) => {
-      const sorted = data.durations.sort((a, b) => a - b);
-      const p95Duration = percentile(sorted, 95);
-      const [method, url] = key.split(" ");
-      return { method, url, p95Duration };
-    })
-    .sort((a, b) => b.p95Duration - a.p95Duration)
-    .slice(0, 10);
-
-  logger.info(`extractTopSlowUrls: found ${topUrls.length} URLs, slowest p95=${topUrls[0]?.p95Duration.toFixed(2)}ms`);
-  return { urls: topUrls };
-}
-
 export function extractErrorRequestsFromData(
-  data: HttpReqsRow[]
+  httpReqsData: HttpReqsRow[],
+  httpReqDurationData: HttpReqDurationRow[]
 ): ErrorRequestsMetric {
-  if (data.length === 0) {
+  if (httpReqsData.length === 0 && httpReqDurationData.length === 0) {
     logger.info("extractErrorRequests: no data found, returning empty list");
     return { errors: [] };
   }
 
-  const errorResults = data.filter((r) => r.status > 400);
-  logger.debug(`extractErrorRequests: ${errorResults.length} error rows out of ${data.length} total`);
+  const errorReqs = httpReqsData.filter((r) => r.status > 400);
+  logger.debug(`extractErrorRequests: ${errorReqs.length} error rows out of ${httpReqsData.length} total`);
 
-  if (errorResults.length === 0) {
+  if (errorReqs.length === 0 && httpReqDurationData.filter((r) => r.status >= 400).length === 0) {
     logger.info("extractErrorRequests: no error requests found");
     return { errors: [] };
   }
 
-  const errorMap = new Map<string, { durations: number[]; method: string; status: number; count: number }>();
+  // Build duration map from httpReqDurationData (error rows, keyed by method+url+status)
+  const errorDurations = httpReqDurationData.filter((r) => r.status >= 400);
+  const durationMap = new Map<string, { durations: number[]; method: string; url: string; status: number; count: number }>();
 
-  errorResults.forEach((r) => {
+  errorDurations.forEach((r) => {
     const key = `${r.method} ${r.url} ${r.status}`;
-    if (!errorMap.has(key)) {
-      errorMap.set(key, { durations: [], method: r.method, status: r.status, count: 0 });
+    if (!durationMap.has(key)) {
+      durationMap.set(key, { durations: [], method: r.method, url: r.url, status: r.status, count: 0 });
     }
-    const entry = errorMap.get(key)!;
+    const entry = durationMap.get(key)!;
     entry.durations.push(r._value);
     entry.count++;
   });
 
-  const topErrors = Array.from(errorMap.entries())
-    .map(([key, data]) => {
+  // If we have no duration data but have error reqs, build from httpReqsData counts
+  if (durationMap.size === 0 && errorReqs.length > 0) {
+    const countMap = new Map<string, { method: string; url: string; status: number; count: number }>();
+    errorReqs.forEach((r) => {
+      const key = `${r.method} ${r.url} ${r.status}`;
+      if (!countMap.has(key)) {
+        countMap.set(key, { method: r.method, url: r.url, status: r.status, count: 0 });
+      }
+      countMap.get(key)!.count++;
+    });
+
+    const errors = Array.from(countMap.values())
+      .map((data) => ({
+        method: data.method,
+        url: data.url,
+        status: data.status,
+        count: data.count,
+        min: 0,
+        avg: 0,
+        p95: 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    logger.info(`extractErrorRequests: found ${errors.length} unique error endpoints (no duration data)`);
+    return { errors };
+  }
+
+  const errors = Array.from(durationMap.values())
+    .map((data) => {
       const sorted = data.durations.sort((a, b) => a - b);
-      const p95Duration = percentile(sorted, 95);
-      const [method, url] = key.split(" ").slice(0, 2).join(" ").split(" ");
-      return { method, url, status: data.status, p95Duration, count: data.count };
+      const min = sorted[0];
+      const avg = data.durations.reduce((sum, val) => sum + val, 0) / data.durations.length;
+      const p95Val = percentile(sorted, 95);
+
+      return {
+        method: data.method,
+        url: data.url,
+        status: data.status,
+        count: data.count,
+        min,
+        avg,
+        p95: p95Val,
+      };
     })
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  logger.info(`extractErrorRequests: found ${topErrors.length} unique error endpoints`);
-  return { errors: topErrors };
-}
-
-export function extractSuccessRequestsFromData(
-  durationData: HttpReqDurationRow[]
-): SuccessRequestsMetric {
-  if (durationData.length === 0) {
-    logger.info("extractSuccessRequests: no data found, returning empty list");
-    return { requests: [] };
-  }
-
-  const successDurations = durationData.filter((r) => r.status < 400);
-  logger.debug(`extractSuccessRequests: ${successDurations.length} success rows out of ${durationData.length} total`);
-
-  if (successDurations.length === 0) {
-    logger.info("extractSuccessRequests: no successful requests found");
-    return { requests: [] };
-  }
-
-  const requestMap = new Map<string, { durations: number[]; method: string; status: number; count: number }>();
-
-  successDurations.forEach((r) => {
-    const key = `${r.method} ${r.url} ${r.status}`;
-    if (!requestMap.has(key)) {
-      requestMap.set(key, { durations: [], method: r.method, status: r.status, count: 0 });
-    }
-    const entry = requestMap.get(key)!;
-    entry.durations.push(r._value);
-    entry.count++;
-  });
-
-  const topRequests = Array.from(requestMap.entries())
-    .map(([key, data]) => {
-      const sorted = data.durations.sort((a, b) => a - b);
-      const min = sorted[0];
-      const avg = data.durations.reduce((sum, val) => sum + val, 0) / data.durations.length;
-      const p95 = percentile(sorted, 95);
-      const [method, url] = key.split(" ").slice(0, 2).join(" ").split(" ");
-      return { method, url, status: data.status, count: data.count, min, avg, p95 };
-    })
-    .sort((a, b) => b.count - a.count);
-
-  logger.info(`extractSuccessRequests: found ${topRequests.length} unique successful endpoints`);
-  return { requests: topRequests };
+  logger.info(`extractErrorRequests: found ${errors.length} unique error endpoints`);
+  return { errors };
 }
 
 export function extractRpsAggregatedFromData(
@@ -263,18 +227,20 @@ export function extractRpsAggregatedFromData(
   return { dataPoints, avg, p95, max };
 }
 
-export function extractRpsPerUrlFromData(
-  data: HttpReqsRow[]
-): RpsPerUrlMetric {
-  if (data.length === 0) {
-    logger.info("extractRpsPerUrl: no data found, returning empty list");
-    return { urls: [] };
+export function extractRequestsFromData(
+  httpReqsData: HttpReqsRow[],
+  httpReqDurationData: HttpReqDurationRow[]
+): RequestsMetric {
+  if (httpReqsData.length === 0 && httpReqDurationData.length === 0) {
+    logger.info("extractRequests: no data found, returning empty list");
+    return { requests: [] };
   }
 
+  // Build RPS map from httpReqsData (keyed by method+url)
   const urlWindowMap = new Map<string, number>();
-  const urlSet = new Set<string>();
+  const urlTotalCount = new Map<string, number>();
 
-  data.forEach((r) => {
+  httpReqsData.forEach((r) => {
     const timestamp = new Date(r._time);
     const windowTime = new Date(timestamp);
     windowTime.setMilliseconds(0);
@@ -284,41 +250,66 @@ export function extractRpsPerUrlFromData(
     const key = `${methodUrlKey}|${windowKey}`;
 
     urlWindowMap.set(key, (urlWindowMap.get(key) || 0) + 1);
-    urlSet.add(methodUrlKey);
+    urlTotalCount.set(methodUrlKey, (urlTotalCount.get(methodUrlKey) || 0) + 1);
   });
 
-  const urlRpsMap = new Map<string, { windowCounts: number[]; totalCount: number }>();
+  const rpsMap = new Map<string, { avg: number; p95: number; max: number }>();
 
+  const urlWindowCounts = new Map<string, number[]>();
   Array.from(urlWindowMap.entries()).forEach(([key, count]) => {
     const methodUrlKey = key.split("|")[0];
-    if (!urlRpsMap.has(methodUrlKey)) {
-      urlRpsMap.set(methodUrlKey, { windowCounts: [], totalCount: 0 });
+    if (!urlWindowCounts.has(methodUrlKey)) {
+      urlWindowCounts.set(methodUrlKey, []);
     }
-    const entry = urlRpsMap.get(methodUrlKey)!;
-    entry.windowCounts.push(count);
-    entry.totalCount += count;
+    urlWindowCounts.get(methodUrlKey)!.push(count);
   });
 
-  const urlResults = Array.from(urlSet)
-    .map((methodUrlKey) => {
-      const data = urlRpsMap.get(methodUrlKey)!;
-      const sortedRps = data.windowCounts.sort((a, b) => a - b);
-      const rpsAvg = sortedRps.reduce((sum, val) => sum + val, 0) / sortedRps.length;
-      const rpsMax = sortedRps[sortedRps.length - 1];
-      const rpsP95 = percentile(sortedRps, 95);
+  urlWindowCounts.forEach((windowCounts, methodUrlKey) => {
+    const sorted = windowCounts.sort((a, b) => a - b);
+    const avg = sorted.reduce((sum, val) => sum + val, 0) / sorted.length;
+    const max = sorted[sorted.length - 1];
+    const p95 = percentile(sorted, 95);
+    rpsMap.set(methodUrlKey, { avg, p95, max });
+  });
 
-      const [method, ...urlParts] = methodUrlKey.split(" ");
-      const url = urlParts.join(" ");
+  // Build duration map from httpReqDurationData (keyed by method+url+status, filtered to success)
+  const successDurations = httpReqDurationData.filter((r) => r.status < 400);
+  const durationMap = new Map<string, { durations: number[]; method: string; url: string; status: number; count: number }>();
+
+  successDurations.forEach((r) => {
+    const key = `${r.method} ${r.url} ${r.status}`;
+    if (!durationMap.has(key)) {
+      durationMap.set(key, { durations: [], method: r.method, url: r.url, status: r.status, count: 0 });
+    }
+    const entry = durationMap.get(key)!;
+    entry.durations.push(r._value);
+    entry.count++;
+  });
+
+  // Merge: iterate over duration groups and attach RPS from rpsMap
+  const requests = Array.from(durationMap.values())
+    .map((data) => {
+      const sorted = data.durations.sort((a, b) => a - b);
+      const min = sorted[0];
+      const avg = data.durations.reduce((sum, val) => sum + val, 0) / data.durations.length;
+      const p95 = percentile(sorted, 95);
+
+      const methodUrlKey = `${data.method} ${data.url}`;
+      const rps = rpsMap.get(methodUrlKey) || { avg: 0, p95: 0, max: 0 };
 
       return {
-        method,
-        url,
-        count: data.totalCount,
-        rps: { avg: rpsAvg, p95: rpsP95, max: rpsMax },
+        method: data.method,
+        url: data.url,
+        status: data.status,
+        count: data.count,
+        rps,
+        min,
+        avg,
+        p95,
       };
     })
-    .sort((a, b) => b.rps.avg - a.rps.avg);
+    .sort((a, b) => b.p95 - a.p95);
 
-  logger.info(`extractRpsPerUrl: found ${urlResults.length} unique URLs`);
-  return { urls: urlResults };
+  logger.info(`extractRequests: found ${requests.length} unique successful endpoints with RPS data`);
+  return { requests };
 }

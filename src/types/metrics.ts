@@ -75,29 +75,7 @@ export interface RpsMetric {
   max: number;
 }
 
-export interface TopSlowUrlMetric {
-  method: string;
-  url: string;
-  p95Duration: number;
-}
-
-export interface TopSlowUrlsMetric {
-  urls: TopSlowUrlMetric[];
-}
-
 export interface ErrorRequestMetric {
-  method: string;
-  url: string;
-  status: number;
-  p95Duration: number;
-  count: number;
-}
-
-export interface ErrorRequestsMetric {
-  errors: ErrorRequestMetric[];
-}
-
-export interface SuccessRequestMetric {
   method: string;
   url: string;
   status: number;
@@ -107,8 +85,23 @@ export interface SuccessRequestMetric {
   p95: number;
 }
 
-export interface SuccessRequestsMetric {
-  requests: SuccessRequestMetric[];
+export interface ErrorRequestsMetric {
+  errors: ErrorRequestMetric[];
+}
+
+export interface RequestMetric {
+  method: string;
+  url: string;
+  status: number;
+  count: number;
+  rps: RpsMetric;
+  min: number;
+  avg: number;
+  p95: number;
+}
+
+export interface RequestsMetric {
+  requests: RequestMetric[];
 }
 
 export interface ErrorResponseMetric {
@@ -121,17 +114,6 @@ export interface ErrorResponseMetric {
 
 export interface ErrorResponsesTextMetric {
   responses: ErrorResponseMetric[];
-}
-
-export interface RpsUrlMetric {
-  method: string;
-  url: string;
-  count: number;
-  rps: RpsMetric;
-}
-
-export interface RpsPerUrlMetric {
-  urls: RpsUrlMetric[];
 }
 
 export interface RpsAggregatedMetric {
