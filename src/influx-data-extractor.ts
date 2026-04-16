@@ -817,7 +817,7 @@ export class InfluxDataExtractor {
       return { responses: [] };
     }
 
-    // Group by method, URL, status, and error
+    // Group by method, URL, and status (error bodies often contain unique IDs/timestamps)
     const groupedErrors = new Map<string, ErrorResponseMetric>();
 
     results.forEach((r) => {
@@ -825,7 +825,7 @@ export class InfluxDataExtractor {
       const method = r.method as string;
       const status = r.status as number;
       const error = String(r.err || "");
-      const key = `${method}|${url}|${status}|${error}`;
+      const key = `${method}|${url}|${status}`;
 
       if (groupedErrors.has(key)) {
         groupedErrors.get(key)!.count++;
