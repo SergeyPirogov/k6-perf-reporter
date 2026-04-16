@@ -1,6 +1,7 @@
 import { InfluxDataExtractor } from "./influx-data-extractor";
 import { InfluxConfig } from "./config";
 import { Loader } from "./loader";
+import { Cache } from "./cache";
 
 export interface ReporterResponse {
   runId: string;
@@ -13,9 +14,11 @@ export interface ReporterResponse {
 export class DataCollector {
   private extractor: InfluxDataExtractor;
   private loader = new Loader();
+  private cache: Cache | null;
 
-  constructor(config: InfluxConfig) {
+  constructor(config: InfluxConfig, cacheTtl?: number) {
     this.extractor = new InfluxDataExtractor(config);
+    this.cache = cacheTtl != null && cacheTtl > 0 ? new Cache(cacheTtl) : null;
   }
 
   async collect(
@@ -24,6 +27,13 @@ export class DataCollector {
     endTime: string = "now()",
     data: unknown = {}
   ): Promise<ReporterResponse> {
+    if (this.cache) {
+      const cached = this.cache.get(runId, startTime, endTime);
+      if (cached) {
+        this.loader.success("Loaded report from cache");
+        return cached;
+      }
+    }
     this.loader.start("Extracting http_reqs...");
     const httpReqs = await this.extractor.extractHttpReqs(runId, startTime, endTime);
     this.loader.success("Extracted http_reqs");
@@ -113,12 +123,18 @@ export class DataCollector {
       rpsAggregated,
     };
 
-    return {
+    const result: ReporterResponse = {
       runId,
       startTime: duration.startTime || startTime,
       endTime: duration.endTime || endTime,
       timestamp: new Date().toISOString(),
       data: reportData,
     };
+
+    if (this.cache) {
+      this.cache.set(runId, startTime, endTime, result);
+    }
+
+    return result;
   }
 }
