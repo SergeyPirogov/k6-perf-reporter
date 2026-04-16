@@ -1,5 +1,6 @@
 import { InfluxClient } from "./influx-client";
 import { InfluxConfig } from "./config";
+import { logger } from "./logger";
 
 const percentile = (values: number[], p: number): number => {
   if (values.length === 0) return 0;
@@ -166,6 +167,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<HttpReqsMetric> {
+    logger.debug(`extractHttpReqs: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -174,8 +177,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractHttpReqs: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractHttpReqs: no data found, returning zeros");
       return { total: 0, rate: 0 };
     }
 
@@ -191,6 +196,7 @@ export class InfluxDataExtractor {
     `;
 
     const durationResults = await this.client.queryData(durationQuery);
+    logger.debug(`extractHttpReqs: duration query returned ${durationResults?.length ?? 0} rows`);
 
     if (!durationResults || durationResults.length < 2) {
       return { total, rate: 0 };
@@ -210,6 +216,7 @@ export class InfluxDataExtractor {
 
     const rate = durationSeconds > 0 ? total / durationSeconds : 0;
 
+    logger.info(`extractHttpReqs: total=${total}, rate=${rate.toFixed(2)} req/s`);
     return { total, rate };
   }
 
@@ -218,6 +225,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<VusMetric> {
+    logger.debug(`extractVus: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -226,8 +235,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractVus: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractVus: no data found, returning zeros");
       return { current: 0, min: 0, max: 0 };
     }
 
@@ -235,6 +246,7 @@ export class InfluxDataExtractor {
     const min = Math.min(...values);
     const max = Math.max(...values);
 
+    logger.info(`extractVus: current=${max}, min=${min}, max=${max}`);
     return { current: max, min, max };
   }
 
@@ -243,6 +255,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<VusMaxMetric> {
+    logger.debug(`extractVusMax: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -250,8 +264,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractVusMax: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractVusMax: no data found, returning zeros");
       return { min: 0, max: 0 };
     }
 
@@ -259,6 +275,7 @@ export class InfluxDataExtractor {
     const min = Math.min(...values);
     const max = Math.max(...values);
 
+    logger.info(`extractVusMax: min=${min}, max=${max}`);
     return { min, max };
   }
 
@@ -267,6 +284,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<IterationsMetric> {
+    logger.debug(`extractIterations: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -275,8 +294,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractIterations: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractIterations: no data found, returning zeros");
       return { total: 0, rate: 0 };
     }
 
@@ -292,6 +313,7 @@ export class InfluxDataExtractor {
     `;
 
     const durationResults = await this.client.queryData(durationQuery);
+    logger.debug(`extractIterations: duration query returned ${durationResults?.length ?? 0} rows`);
 
     if (!durationResults || durationResults.length < 2) {
       return { total, rate: 0 };
@@ -311,6 +333,7 @@ export class InfluxDataExtractor {
 
     const rate = durationSeconds > 0 ? total / durationSeconds : 0;
 
+    logger.info(`extractIterations: total=${total}, rate=${rate.toFixed(2)} iter/s`);
     return { total, rate };
   }
 
@@ -319,6 +342,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<DurationMetric> {
+    logger.debug(`calculateTestDuration: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -328,8 +353,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`calculateTestDuration: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("calculateTestDuration: no data found, returning empty duration");
       return { startTime: "", endTime: "", durationSeconds: 0 };
     }
 
@@ -347,6 +374,7 @@ export class InfluxDataExtractor {
     const endTimeMs = new Date(lastTime).getTime();
     const durationSeconds = (endTimeMs - startTimeMs) / 1000;
 
+    logger.info(`calculateTestDuration: ${durationSeconds.toFixed(1)}s (${firstTime} -> ${lastTime})`);
     return {
       startTime: firstTime,
       endTime: lastTime,
@@ -359,6 +387,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<ChecksMetric> {
+    logger.debug(`extractChecks: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -367,8 +397,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractChecks: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractChecks: no data found, returning zeros");
       return { passes: 0, fails: 0, passRate: 0 };
     }
 
@@ -377,6 +409,7 @@ export class InfluxDataExtractor {
     const total = passes + fails;
     const passRate = total > 0 ? (passes / total) * 100 : 0;
 
+    logger.info(`extractChecks: passes=${passes}, fails=${fails}, passRate=${passRate.toFixed(2)}%`);
     return { passes, fails, passRate };
   }
 
@@ -385,6 +418,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<HttpReqFailedMetric> {
+    logger.debug(`extractHttpReqFailed: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -393,8 +428,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractHttpReqFailed: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractHttpReqFailed: no data found, returning zeros");
       return { total: 0, failed: 0, failureRate: 0 };
     }
 
@@ -405,6 +442,7 @@ export class InfluxDataExtractor {
     }).length;
     const failureRate = total > 0 ? (failed / total) * 100 : 0;
 
+    logger.info(`extractHttpReqFailed: total=${total}, failed=${failed}, failureRate=${failureRate.toFixed(2)}%`);
     return { total, failed, failureRate };
   }
 
@@ -413,6 +451,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<HttpReqDurationMetric> {
+    logger.debug(`extractHttpReqDuration: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -421,8 +461,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractHttpReqDuration: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractHttpReqDuration: no data found, returning zeros");
       return { avg: 0, min: 0, med: 0, max: 0, p90: 0, p95: 0 };
     }
 
@@ -439,6 +481,7 @@ export class InfluxDataExtractor {
     const p90 = percentile(values, 90);
     const p95 = percentile(values, 95);
 
+    logger.info(`extractHttpReqDuration: avg=${avg.toFixed(2)}ms, p90=${p90.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
     return { avg, min, med, max, p90, p95 };
   }
 
@@ -447,6 +490,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<HttpReqDurationSuccessMetric> {
+    logger.debug(`extractHttpReqDurationSuccess: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -456,8 +501,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractHttpReqDurationSuccess: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractHttpReqDurationSuccess: no data found, returning zeros");
       return { avg: 0, min: 0, med: 0, max: 0, p90: 0, p95: 0 };
     }
 
@@ -474,6 +521,7 @@ export class InfluxDataExtractor {
     const p90 = percentile(values, 90);
     const p95 = percentile(values, 95);
 
+    logger.info(`extractHttpReqDurationSuccess: avg=${avg.toFixed(2)}ms, p90=${p90.toFixed(2)}ms, p95=${p95.toFixed(2)}ms`);
     return { avg, min, med, max, p90, p95 };
   }
 
@@ -482,6 +530,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<IterationDurationMetric> {
+    logger.debug(`extractIterationDuration: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -490,8 +540,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractIterationDuration: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractIterationDuration: no data found, returning zeros");
       return { avg: 0, min: 0, med: 0, max: 0, p90: 0, p95: 0 };
     }
 
@@ -508,6 +560,7 @@ export class InfluxDataExtractor {
     const p90 = percentile(values, 90);
     const p95 = percentile(values, 95);
 
+    logger.info(`extractIterationDuration: avg=${avg.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
     return { avg, min, med, max, p90, p95 };
   }
 
@@ -516,6 +569,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<ErrorResponsesMetric> {
+    logger.debug(`extractErrorResponses: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -524,8 +579,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractErrorResponses: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractErrorResponses: no data found, returning zeros");
       return { count: 0, rate: 0 };
     }
 
@@ -544,6 +601,7 @@ export class InfluxDataExtractor {
     `;
 
     const durationResults = await this.client.queryData(durationQuery);
+    logger.debug(`extractErrorResponses: duration query returned ${durationResults?.length ?? 0} rows`);
 
     if (!durationResults || durationResults.length < 2) {
       return { count, rate: 0 };
@@ -563,6 +621,7 @@ export class InfluxDataExtractor {
 
     const rate = durationSeconds > 0 ? count / durationSeconds : 0;
 
+    logger.info(`extractErrorResponses: count=${count}, rate=${rate.toFixed(2)} err/s`);
     return { count, rate };
   }
 
@@ -571,6 +630,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<TopSlowUrlsMetric> {
+    logger.debug(`extractTopSlowUrls: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -579,8 +640,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractTopSlowUrls: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractTopSlowUrls: no data found, returning empty list");
       return { urls: [] };
     }
 
@@ -611,6 +674,7 @@ export class InfluxDataExtractor {
       .sort((a, b) => b.p95Duration - a.p95Duration)
       .slice(0, 10);
 
+    logger.info(`extractTopSlowUrls: found ${topUrls.length} URLs, slowest p95=${topUrls[0]?.p95Duration.toFixed(2)}ms`);
     return { urls: topUrls };
   }
 
@@ -619,6 +683,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<ErrorRequestsMetric> {
+    logger.debug(`extractErrorRequests: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -627,8 +693,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractErrorRequests: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractErrorRequests: no data found, returning empty list");
       return { errors: [] };
     }
 
@@ -638,7 +706,10 @@ export class InfluxDataExtractor {
       return status > 400;
     });
 
+    logger.debug(`extractErrorRequests: ${errorResults.length} error rows out of ${results.length} total`);
+
     if (errorResults.length === 0) {
+      logger.info("extractErrorRequests: no error requests found");
       return { errors: [] };
     }
 
@@ -671,6 +742,7 @@ export class InfluxDataExtractor {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
+    logger.info(`extractErrorRequests: found ${topErrors.length} unique error endpoints`);
     return { errors: topErrors };
   }
 
@@ -679,6 +751,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<SuccessRequestsMetric> {
+    logger.debug(`extractSuccessRequests: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -687,8 +761,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractSuccessRequests: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractSuccessRequests: no data found, returning empty list");
       return { requests: [] };
     }
 
@@ -698,7 +774,10 @@ export class InfluxDataExtractor {
       return status < 400;
     });
 
+    logger.debug(`extractSuccessRequests: ${successResults.length} success rows out of ${results.length} total`);
+
     if (successResults.length === 0) {
+      logger.info("extractSuccessRequests: no successful requests found");
       return { requests: [] };
     }
 
@@ -711,8 +790,10 @@ export class InfluxDataExtractor {
     `;
 
     const durationResultsSuccess = await this.client.queryData(durationQuerySuccess);
+    logger.debug(`extractSuccessRequests: duration query returned ${durationResultsSuccess?.length ?? 0} rows`);
 
     if (!durationResultsSuccess || durationResultsSuccess.length === 0) {
+      logger.info("extractSuccessRequests: no duration data found");
       return { requests: [] };
     }
 
@@ -752,6 +833,7 @@ export class InfluxDataExtractor {
       })
       .sort((a, b) => b.count - a.count);
 
+    logger.info(`extractSuccessRequests: found ${topRequests.length} unique successful endpoints`);
     return { requests: topRequests };
   }
 
@@ -760,6 +842,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<ErrorResponsesTextMetric> {
+    logger.debug(`extractErrorResponsesText: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -768,8 +852,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractErrorResponsesText: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractErrorResponsesText: no error response texts found");
       return { responses: [] };
     }
 
@@ -781,6 +867,7 @@ export class InfluxDataExtractor {
       error: String(r.err || ""),
     }));
 
+    logger.info(`extractErrorResponsesText: found ${responses.length} error response texts`);
     return { responses };
   }
 
@@ -789,6 +876,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<RpsAggregatedMetric> {
+    logger.debug(`extractRpsAggregated: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -797,8 +886,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractRpsAggregated: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractRpsAggregated: no data found, returning empty");
       return { dataPoints: [], avg: 0, p95: 0, max: 0 };
     }
 
@@ -829,6 +920,7 @@ export class InfluxDataExtractor {
     const max = rpsValues[rpsValues.length - 1];
     const p95 = percentile(rpsValues, 95);
 
+    logger.info(`extractRpsAggregated: ${dataPoints.length} data points, avg=${avg.toFixed(2)} rps, p95=${p95.toFixed(2)} rps, max=${max} rps`);
     return { dataPoints, avg, p95, max };
   }
 
@@ -837,6 +929,8 @@ export class InfluxDataExtractor {
     startTime: string,
     endTime: string
   ): Promise<RpsPerUrlMetric> {
+    logger.debug(`extractRpsPerUrl: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     const query = `
       from(bucket: "${this.config.bucket}")
         |> range(start: ${startTime}, stop: ${endTime})
@@ -845,8 +939,10 @@ export class InfluxDataExtractor {
     `;
 
     const results = await this.client.queryData(query);
+    logger.debug(`extractRpsPerUrl: query returned ${results?.length ?? 0} rows`);
 
     if (!results || results.length === 0) {
+      logger.info("extractRpsPerUrl: no data found, returning empty list");
       return { urls: [] };
     }
 
@@ -906,6 +1002,7 @@ export class InfluxDataExtractor {
       })
       .sort((a, b) => b.rps.avg - a.rps.avg);
 
+    logger.info(`extractRpsPerUrl: found ${urlResults.length} unique URLs`);
     return { urls: urlResults };
   }
 }

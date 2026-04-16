@@ -7,6 +7,8 @@ export class SlackReporter {
   private client: WebClient;
   private channel: string;
   private readonly MAX_BLOCKS_PER_MESSAGE = 50;
+  private readonly MAX_BLOCK_TEXT_LENGTH = 3000;
+  private readonly MAX_CELL_LENGTH = 80;
 
   constructor(token: string, channel: string) {
     this.client = new WebClient(token);
@@ -169,13 +171,7 @@ export class SlackReporter {
           ["#", "Method", "URL", "p(95)"],
           ...urls.map((u, i) => [String(i + 1), u.method, u.url, this.formatDuration(u.p95Duration)]),
         ];
-        blocks.push({
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*Top 10 Slowest URLs*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
-          },
-        });
+        blocks.push(...this.createSafeTableBlocks("Top 10 Slowest URLs", tableData));
       }
     }
 
@@ -187,13 +183,7 @@ export class SlackReporter {
           ["#", "Method", "URL", "Count", "avg", "p(95)", "max"],
           ...urls.map((u, i) => [String(i + 1), u.method, u.url, String(u.count), u.rps.avg.toFixed(2), u.rps.p95.toFixed(2), u.rps.max.toFixed(2)]),
         ];
-        blocks.push({
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*RPS per URL*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
-          },
-        });
+        blocks.push(...this.createSafeTableBlocks("RPS per URL", tableData));
       }
     }
 
@@ -205,13 +195,7 @@ export class SlackReporter {
           ["#", "Method", "URL", "Status", "Count", "Min", "Avg", "p(95)"],
           ...requests.map((r, i) => [String(i + 1), r.method, r.url, String(r.status), String(r.count), this.formatDuration(r.min), this.formatDuration(r.avg), this.formatDuration(r.p95)]),
         ];
-        blocks.push({
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*Top Successful Requests*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
-          },
-        });
+        blocks.push(...this.createSafeTableBlocks("Top Successful Requests", tableData));
       }
     }
 
@@ -223,13 +207,7 @@ export class SlackReporter {
           ["#", "Method", "URL", "Code", "Count"],
           ...errors.map((e, i) => [String(i + 1), e.method, e.url, String(e.status), String(e.count)]),
         ];
-        blocks.push({
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*Top Error Requests*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
-          },
-        });
+        blocks.push(...this.createSafeTableBlocks("Top Error Requests", tableData));
       }
     }
 
@@ -268,14 +246,45 @@ export class SlackReporter {
             return [String(i + 1), r.method, url, String(r.status), r.error, String(r.count)];
           }),
         ];
-        blocks.push({
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*Error Responses*\n\`\`\`\n${this.formatTable(tableData)}\`\`\``,
-          },
-        });
+        blocks.push(...this.createSafeTableBlocks("Error Responses", tableData));
       }
+    }
+
+    return blocks;
+  }
+
+  private truncateCell(value: string, maxLength: number = this.MAX_CELL_LENGTH): string {
+    if (value.length <= maxLength) return value;
+    return value.substring(0, maxLength - 1) + "…";
+  }
+
+  private truncateTableCells(tableData: string[][]): string[][] {
+    return tableData.map((row, i) => (i === 0 ? row : row.map((cell) => this.truncateCell(cell))));
+  }
+
+  private createSafeTableBlocks(title: string, tableData: string[][]): KnownBlock[] {
+    const truncated = this.truncateTableCells(tableData);
+    const header = truncated[0];
+    const rows = truncated.slice(1);
+    const blocks: KnownBlock[] = [];
+    let currentRows = [header];
+
+    for (const row of rows) {
+      const candidate = [...currentRows, row];
+      const text = `*${title}${blocks.length > 0 ? " (cont.)" : ""}*\n\`\`\`\n${this.formatTable(candidate)}\`\`\``;
+
+      if (text.length > this.MAX_BLOCK_TEXT_LENGTH && currentRows.length > 1) {
+        const blockText = `*${title}${blocks.length > 0 ? " (cont.)" : ""}*\n\`\`\`\n${this.formatTable(currentRows)}\`\`\``;
+        blocks.push({ type: "section", text: { type: "mrkdwn", text: blockText } });
+        currentRows = [header, row];
+      } else {
+        currentRows = candidate;
+      }
+    }
+
+    if (currentRows.length > 1) {
+      const blockText = `*${title}${blocks.length > 0 ? " (cont.)" : ""}*\n\`\`\`\n${this.formatTable(currentRows)}\`\`\``;
+      blocks.push({ type: "section", text: { type: "mrkdwn", text: blockText } });
     }
 
     return blocks;
