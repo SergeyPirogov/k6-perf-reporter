@@ -162,32 +162,13 @@ export class CliReporter {
 
     if (reportData.errorResponsesText) {
       const errorResponsesText = reportData.errorResponsesText as Record<string, unknown>;
-      const responses = errorResponsesText.responses as Array<{ url: string; method: string; status: number; error: string }>;
+      const responses = errorResponsesText.responses as Array<{ url: string; method: string; status: number; error: string; count: number }>;
       if (responses && responses.length > 0) {
-        // Group by method, URL, status, and error
-        const groupedErrors = new Map<string, { method: string; url: string; status: number; error: string; count: number }>();
-
-        responses.forEach((r) => {
-          const key = `${r.method}|${r.url}|${r.status}|${r.error}`;
-          if (groupedErrors.has(key)) {
-            const entry = groupedErrors.get(key)!;
-            entry.count++;
-          } else {
-            groupedErrors.set(key, {
-              method: r.method,
-              url: r.url,
-              status: r.status,
-              error: r.error || "",
-              count: 1,
-            });
-          }
-        });
-
         console.log("\nError Responses:");
         console.log("");
         const tableData = [
           ["#", "Method", "URL", "Status", "Error", "Count"],
-          ...Array.from(groupedErrors.values()).map((r, i) => {
+          ...responses.map((r, i) => {
             // Extract path only from URL
             let url = r.url;
             try {

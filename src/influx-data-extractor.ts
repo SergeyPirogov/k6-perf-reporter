@@ -126,6 +126,7 @@ export interface ErrorResponseMetric {
   method: string;
   status: number;
   error: string;
+  count: number;
 }
 
 export interface ErrorResponsesTextMetric {
@@ -816,15 +817,27 @@ export class InfluxDataExtractor {
       return { responses: [] };
     }
 
-    // Map to error response format
-    const responses = results.map((r) => ({
-      url: r.endpoint as string,
-      method: r.method as string,
-      status: r.status as number,
-      error: String(r.err || ""),
-    }));
+    // Group by method, URL, status, and error
+    const groupedErrors = new Map<string, ErrorResponseMetric>();
 
-    logger.info(`extractErrorResponsesText: found ${responses.length} error response texts`);
+    results.forEach((r) => {
+      const url = r.endpoint as string;
+      const method = r.method as string;
+      const status = r.status as number;
+      const error = String(r.err || "");
+      const key = `${method}|${url}|${status}|${error}`;
+
+      if (groupedErrors.has(key)) {
+        groupedErrors.get(key)!.count++;
+      } else {
+        groupedErrors.set(key, { url, method, status, error, count: 1 });
+      }
+    });
+
+    const responses = Array.from(groupedErrors.values())
+      .sort((a, b) => b.count - a.count);
+
+    logger.info(`extractErrorResponsesText: ${results.length} rows grouped into ${responses.length} unique errors`);
     return { responses };
   }
 }
