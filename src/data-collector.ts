@@ -1,23 +1,29 @@
-import { InfluxDataExtractor } from "./influx-data-extractor";
-import { InfluxConfig } from "./config";
+import { DataSource } from "./datasources";
+import { ReporterResponse } from "./types";
+import {
+  extractHttpReqsFromData,
+  extractHttpReqFailedFromData,
+  extractHttpReqDurationFromData,
+  extractHttpReqDurationSuccessFromData,
+  extractErrorResponsesFromData,
+  extractTopSlowUrlsFromData,
+  extractErrorRequestsFromData,
+  extractSuccessRequestsFromData,
+  extractRpsPerUrlFromData,
+  extractRpsAggregatedFromData,
+} from "./metrics";
 import { Loader } from "./loader";
 import { Cache } from "./cache";
 
-export interface ReporterResponse {
-  runId: string;
-  startTime: string;
-  endTime: string;
-  timestamp: string;
-  data: unknown;
-}
+export { ReporterResponse } from "./types";
 
 export class DataCollector {
-  private extractor: InfluxDataExtractor;
+  private dataSource: DataSource;
   private loader = new Loader();
   private cache: Cache | null;
 
-  constructor(config: InfluxConfig, cacheTtl?: number) {
-    this.extractor = new InfluxDataExtractor(config);
+  constructor(dataSource: DataSource, cacheTtl?: number) {
+    this.dataSource = dataSource;
     this.cache = cacheTtl != null && cacheTtl > 0 ? new Cache(cacheTtl) : null;
   }
 
@@ -57,15 +63,15 @@ export class DataCollector {
       iterationDuration,
       errorResponsesText,
     ] = await Promise.all([
-      this.extractor.fetchHttpReqsData(runId, startTime, endTime),
-      this.extractor.fetchHttpReqDurationData(runId, startTime, endTime),
-      this.extractor.calculateTestDuration(runId, startTime, endTime),
-      this.extractor.extractVus(runId, startTime, endTime),
-      this.extractor.extractVusMax(runId, startTime, endTime),
-      this.extractor.extractIterations(runId, startTime, endTime),
-      this.extractor.extractChecks(runId, startTime, endTime),
-      this.extractor.extractIterationDuration(runId, startTime, endTime),
-      this.extractor.extractErrorResponsesText(runId, startTime, endTime),
+      this.dataSource.fetchHttpReqsData(runId, startTime, endTime),
+      this.dataSource.fetchHttpReqDurationData(runId, startTime, endTime),
+      this.dataSource.calculateTestDuration(runId, startTime, endTime),
+      this.dataSource.extractVus(runId, startTime, endTime),
+      this.dataSource.extractVusMax(runId, startTime, endTime),
+      this.dataSource.extractIterations(runId, startTime, endTime),
+      this.dataSource.extractChecks(runId, startTime, endTime),
+      this.dataSource.extractIterationDuration(runId, startTime, endTime),
+      this.dataSource.extractErrorResponsesText(runId, startTime, endTime),
     ]);
     this.loader.success(`Data fetching finished in ${this.formatElapsed(Date.now() - fetchStart)}`);
 
@@ -77,16 +83,16 @@ export class DataCollector {
       iterations.rate = iterations.total / duration.durationSeconds;
     }
 
-    const httpReqs = this.extractor.extractHttpReqsFromData(httpReqsData, duration);
-    const httpReqFailed = this.extractor.extractHttpReqFailedFromData(httpReqsData);
-    const httpReqDuration = this.extractor.extractHttpReqDurationFromData(httpReqDurationData);
-    const httpReqDurationSuccess = this.extractor.extractHttpReqDurationSuccessFromData(httpReqDurationData);
-    const errorResponses = this.extractor.extractErrorResponsesFromData(httpReqsData, duration);
-    const topSlowUrls = this.extractor.extractTopSlowUrlsFromData(httpReqDurationData);
-    const errorRequests = this.extractor.extractErrorRequestsFromData(httpReqsData);
-    const successRequests = this.extractor.extractSuccessRequestsFromData(httpReqDurationData);
-    const rpsPerUrl = this.extractor.extractRpsPerUrlFromData(httpReqsData);
-    const rpsAggregated = this.extractor.extractRpsAggregatedFromData(httpReqsData);
+    const httpReqs = extractHttpReqsFromData(httpReqsData, duration);
+    const httpReqFailed = extractHttpReqFailedFromData(httpReqsData);
+    const httpReqDuration = extractHttpReqDurationFromData(httpReqDurationData);
+    const httpReqDurationSuccess = extractHttpReqDurationSuccessFromData(httpReqDurationData);
+    const errorResponses = extractErrorResponsesFromData(httpReqsData, duration);
+    const topSlowUrls = extractTopSlowUrlsFromData(httpReqDurationData);
+    const errorRequests = extractErrorRequestsFromData(httpReqsData);
+    const successRequests = extractSuccessRequestsFromData(httpReqDurationData);
+    const rpsPerUrl = extractRpsPerUrlFromData(httpReqsData);
+    const rpsAggregated = extractRpsAggregatedFromData(httpReqsData);
 
     this.loader.success("Computed all metrics");
 

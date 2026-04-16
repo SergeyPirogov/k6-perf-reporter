@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 
+export type DataSourceType = "influxdb" | "prometheus";
+
 export interface InfluxConfig {
   url: string;
   token: string;
@@ -18,6 +20,7 @@ export interface CacheConfig {
 }
 
 interface RawConfig {
+  dataSource?: string;
   influx?: Record<string, unknown>;
   slack?: Record<string, unknown>;
   cache?: Record<string, unknown>;
@@ -25,7 +28,8 @@ interface RawConfig {
 
 export class Config {
   private static instance: Config;
-  private influxConfig: InfluxConfig;
+  private dataSourceType: DataSourceType;
+  private rawInflux: Record<string, unknown> | undefined;
   private slackConfig: SlackConfig | null = null;
   private cacheConfig: CacheConfig;
   private configPath: string;
@@ -33,7 +37,8 @@ export class Config {
   private constructor(configPath?: string) {
     this.configPath = configPath || ".config.json";
     const rawConfig = this.loadRawConfig();
-    this.influxConfig = this.parseInfluxConfig(rawConfig.influx);
+    this.dataSourceType = this.parseDataSourceType(rawConfig.dataSource);
+    this.rawInflux = rawConfig.influx;
     this.slackConfig = this.parseSlackConfig(rawConfig.slack);
     this.cacheConfig = this.parseCacheConfig(rawConfig.cache);
   }
@@ -53,11 +58,20 @@ export class Config {
     return {};
   }
 
-  private parseInfluxConfig(rawConfig: Record<string, unknown> | undefined): InfluxConfig {
-    const url = this.resolveValue(rawConfig?.url as string | undefined, "INFLUX_URL");
-    const token = this.resolveValue(rawConfig?.token as string | undefined, "INFLUX_TOKEN");
-    const org = this.resolveValue(rawConfig?.org as string | undefined, "INFLUX_ORG");
-    const bucket = this.resolveValue(rawConfig?.bucket as string | undefined, "INFLUX_BUCKET");
+  private parseDataSourceType(raw: string | undefined): DataSourceType {
+    const envValue = process.env["DATASOURCE"];
+    const value = envValue || raw || "influxdb";
+    if (value !== "influxdb" && value !== "prometheus") {
+      throw new Error(`Unknown datasource type: '${value}'. Supported: influxdb, prometheus`);
+    }
+    return value;
+  }
+
+  getInfluxConfig(): InfluxConfig {
+    const url = this.resolveValue(this.rawInflux?.url as string | undefined, "INFLUX_URL");
+    const token = this.resolveValue(this.rawInflux?.token as string | undefined, "INFLUX_TOKEN");
+    const org = this.resolveValue(this.rawInflux?.org as string | undefined, "INFLUX_ORG");
+    const bucket = this.resolveValue(this.rawInflux?.bucket as string | undefined, "INFLUX_BUCKET");
 
     if (!url || !token || !org || !bucket) {
       throw new Error(
@@ -117,8 +131,8 @@ export class Config {
     return Config.instance;
   }
 
-  getInfluxConfig(): InfluxConfig {
-    return this.influxConfig;
+  getDataSourceType(): DataSourceType {
+    return this.dataSourceType;
   }
 
   getSlackConfig(): SlackConfig | null {

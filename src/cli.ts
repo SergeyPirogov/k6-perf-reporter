@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 import { program } from "commander";
-import { Config } from "./config";
+import { Config, DataSourceType } from "./config";
 import { DataCollector } from "./data-collector";
+import { createDataSource } from "./datasources";
 import { JsonReporter, CliReporter, SlackReporter, MarkdownReporter } from "./reporters";
 
 function main(): void {
   program
     .name("k6-reporter")
-    .description("Generate CLI reports from k6 tests stored in InfluxDB")
+    .description("Generate CLI reports from k6 performance tests")
     .version("1.6.0");
 
   program
@@ -18,15 +19,17 @@ function main(): void {
     .option("-st, --start-time <time>", "Start time in ISO 8601 format or relative like '-1h'")
     .option("-et, --end-time <time>", "End time in ISO 8601 format (defaults to now)")
     .option("-c, --config <path>", "Path to config file", ".config.json")
+    .option("-d, --datasource <type>", "Data source: 'influxdb' or 'prometheus'")
     .option("-f, --format <format>", "Output format: 'json', 'cli', 'markdown', or 'slack'", "cli")
     .option("-o, --output <path>", "Output file path (for json format)")
     .option("--no-cache", "Disable cache, always fetch fresh data")
     .action(async (options) => {
       try {
         const configInstance = Config.getInstance(options.config);
-        const config = configInstance.getInfluxConfig();
+        const dsType = (options.datasource || configInstance.getDataSourceType()) as DataSourceType;
+        const dataSource = createDataSource(dsType, configInstance);
         const cacheTtl = options.cache ? configInstance.getCacheConfig().ttl : 0;
-        const collector = new DataCollector(config, cacheTtl);
+        const collector = new DataCollector(dataSource, cacheTtl);
         const report = await collector.collect(
           options.runId,
           options.startTime || "-1h",
@@ -62,7 +65,7 @@ function main(): void {
     .description("Show help and examples")
     .action(() => {
       console.log(`
-k6-reporter - Generate CLI reports from k6 tests stored in InfluxDB
+k6-reporter - Generate reports from k6 performance tests
 
 USAGE:
   k6-reporter <command> [options]
@@ -79,6 +82,7 @@ OPTIONS:
   -st, --start-time       Start time (relative: -1h, -30m, or ISO 8601)
   -et, --end-time         End time (ISO 8601 format, defaults to now)
   -c, --config            Path to config file (default: .config.json)
+  -d, --datasource        Data source: 'influxdb' or 'prometheus' (default: influxdb)
   -f, --format            Output format: 'json', 'cli', 'markdown', or 'slack' (default: cli)
   -o, --output            Output file path (for json and markdown formats)
   --no-cache              Disable cache, always fetch fresh data
@@ -108,7 +112,10 @@ EXAMPLES:
   7. Use custom config file:
      k6-reporter generate --run-id 123456790121 -c /path/to/config.json
 
-  8. Get help for generate command:
+  8. Use Prometheus datasource:
+     k6-reporter generate --run-id 123456790121 -d prometheus
+
+  9. Get help for generate command:
      k6-reporter generate --help
 
 TIME FORMAT:
@@ -124,14 +131,28 @@ TIME FORMAT:
 
 CONFIG FILE:
 
-  The config file (.config.json) should contain InfluxDB connection settings:
+  The config file (.config.json) supports multiple datasources:
 
   {
-    "influxUrl": "https://influxdb.example.com",
-    "influxToken": "your-influx-token",
-    "influxOrg": "your-org",
-    "influxBucket": "your-bucket"
+    "dataSource": "influxdb",
+    "influx": {
+      "url": "https://influxdb.example.com",
+      "token": "your-influx-token",
+      "org": "your-org",
+      "bucket": "your-bucket"
+    }
   }
+
+ENVIRONMENT VARIABLES:
+
+  DATASOURCE         Data source type (influxdb, prometheus)
+  INFLUX_URL         InfluxDB URL
+  INFLUX_TOKEN       InfluxDB token
+  INFLUX_ORG         InfluxDB organization
+  INFLUX_BUCKET      InfluxDB bucket
+  SLACK_TOKEN        Slack bot token
+  SLACK_CHANNEL      Slack channel ID
+  CACHE_TTL          Cache TTL in seconds (default: 3600)
       `);
     });
 

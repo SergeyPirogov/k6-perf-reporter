@@ -1,5 +1,5 @@
 import { InfluxDB, QueryApi } from "@influxdata/influxdb-client";
-import { InfluxConfig } from "./config";
+import { InfluxConfig } from "../../config";
 
 export interface QueryRow {
   values: (string | number | boolean | null)[];
