@@ -15,7 +15,7 @@ function getLogLevel(): LogLevel {
   if (env && env in LOG_LEVELS) {
     return env as LogLevel;
   }
-  return "info";
+  return "silent";
 }
 
 function shouldLog(level: LogLevel): boolean {
