@@ -20,10 +20,13 @@ function main(): void {
     .option("-c, --config <path>", "Path to config file", ".config.json")
     .option("-f, --format <format>", "Output format: 'json', 'cli', 'markdown', or 'slack'", "cli")
     .option("-o, --output <path>", "Output file path (for json format)")
+    .option("--no-cache", "Disable cache, always fetch fresh data")
     .action(async (options) => {
       try {
-        const config = Config.getInstance(options.config).getInfluxConfig();
-        const collector = new DataCollector(config);
+        const configInstance = Config.getInstance(options.config);
+        const config = configInstance.getInfluxConfig();
+        const cacheTtl = options.cache ? configInstance.getCacheConfig().ttl : 0;
+        const collector = new DataCollector(config, cacheTtl);
         const report = await collector.collect(
           options.runId,
           options.startTime || "-1h",
@@ -37,7 +40,7 @@ function main(): void {
           const markdownReporter = new MarkdownReporter();
           markdownReporter.report(report, options.output);
         } else if (options.format === "slack") {
-          const slackConfig = Config.getInstance(options.config).getSlackConfig();
+          const slackConfig = configInstance.getSlackConfig();
           if (!slackConfig) {
             throw new Error("Slack token not configured. Set SLACK_TOKEN environment variable or configure in config file.");
           }
@@ -78,6 +81,7 @@ OPTIONS:
   -c, --config            Path to config file (default: .config.json)
   -f, --format            Output format: 'json', 'cli', 'markdown', or 'slack' (default: cli)
   -o, --output            Output file path (for json and markdown formats)
+  --no-cache              Disable cache, always fetch fresh data
   -h, --help              Show command help
   -V, --version           Show version
 

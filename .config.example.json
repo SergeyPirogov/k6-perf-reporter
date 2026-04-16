@@ -8,5 +8,8 @@
   "slack": {
     "token": "${SLACK_TOKEN}",
     "channel": "#k6-reports"
+  },
+  "cache": {
+    "ttl": 3600
   }
 }

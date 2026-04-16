@@ -13,15 +13,21 @@ export interface SlackConfig {
   channel: string;
 }
 
+export interface CacheConfig {
+  ttl: number;
+}
+
 interface RawConfig {
   influx?: Record<string, unknown>;
   slack?: Record<string, unknown>;
+  cache?: Record<string, unknown>;
 }
 
 export class Config {
   private static instance: Config;
   private influxConfig: InfluxConfig;
   private slackConfig: SlackConfig | null = null;
+  private cacheConfig: CacheConfig;
   private configPath: string;
 
   private constructor(configPath?: string) {
@@ -29,6 +35,7 @@ export class Config {
     const rawConfig = this.loadRawConfig();
     this.influxConfig = this.parseInfluxConfig(rawConfig.influx);
     this.slackConfig = this.parseSlackConfig(rawConfig.slack);
+    this.cacheConfig = this.parseCacheConfig(rawConfig.cache);
   }
 
   private loadRawConfig(): RawConfig {
@@ -79,6 +86,19 @@ export class Config {
     return { token, channel };
   }
 
+  private parseCacheConfig(rawConfig: Record<string, unknown> | undefined): CacheConfig {
+    const DEFAULT_TTL = 3600;
+    const envTtl = process.env["CACHE_TTL"];
+    if (envTtl) {
+      return { ttl: parseInt(envTtl, 10) };
+    }
+    const ttl = rawConfig?.ttl;
+    if (typeof ttl === "number") {
+      return { ttl };
+    }
+    return { ttl: DEFAULT_TTL };
+  }
+
   private resolveValue(configValue: string | undefined, envVar: string): string | null {
     // First check environment variable (takes priority)
     const envValue = process.env[envVar];
@@ -103,5 +123,9 @@ export class Config {
 
   getSlackConfig(): SlackConfig | null {
     return this.slackConfig;
+  }
+
+  getCacheConfig(): CacheConfig {
+    return this.cacheConfig;
   }
 }
