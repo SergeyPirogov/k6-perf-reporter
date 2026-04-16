@@ -40,6 +40,7 @@ export class MarkdownReporter {
 
     let errorPercent = 0;
     let failedChecks = 0;
+    let totalErrors = 0;
 
     if (reportData.httpReqFailed) {
       const failed = reportData.httpReqFailed as Record<string, number>;
@@ -51,13 +52,19 @@ export class MarkdownReporter {
       failedChecks = typeof checks.fails === "number" ? checks.fails : 0;
     }
 
-    const isSuccess = errorPercent < 1 && failedChecks === 0;
+    if (reportData.errorResponses) {
+      const errorResponses = reportData.errorResponses as Record<string, number>;
+      totalErrors = typeof errorResponses.count === "number" ? errorResponses.count : 0;
+    }
+
+    const isSuccess = errorPercent < 1 && failedChecks === 0 && totalErrors === 0;
     const status = isSuccess ? "✓ PASS" : "✗ FAIL";
 
     summary += `**Status:** ${status}\n\n`;
     summary += `| Metric | Value |\n`;
     summary += `|--------|-------|\n`;
     summary += `| Error Rate | ${errorPercent.toFixed(2)}% |\n`;
+    summary += `| Total Errors | ${totalErrors} |\n`;
     summary += `| Failed Checks | ${failedChecks} |\n\n`;
 
     return summary;

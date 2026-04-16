@@ -204,6 +204,7 @@ export class CliReporter {
 
     let errorPercent = 0;
     let failedChecks = 0;
+    let totalErrors = 0;
 
     // Calculate error percentage
     if (reportData.httpReqFailed) {
@@ -217,8 +218,14 @@ export class CliReporter {
       failedChecks = typeof checks.fails === "number" ? checks.fails : 0;
     }
 
+    // Get total error count
+    if (reportData.errorResponses) {
+      const errorResponses = reportData.errorResponses as Record<string, number>;
+      totalErrors = typeof errorResponses.count === "number" ? errorResponses.count : 0;
+    }
+
     // Determine success/failure
-    const isSuccess = errorPercent < 1 && failedChecks === 0;
+    const isSuccess = errorPercent < 1 && failedChecks === 0 && totalErrors === 0;
 
     console.log("\n---");
     if (isSuccess) {
@@ -228,6 +235,7 @@ export class CliReporter {
     }
     console.log("");
     console.log(`${chalk.gray("Error Rate:")} ${chalk.cyan(errorPercent.toFixed(2) + "%")}`);
+    console.log(`${chalk.gray("Total Errors:")} ${chalk.cyan(String(totalErrors))}`);
     console.log(`${chalk.gray("Failed Checks:")} ${chalk.cyan(String(failedChecks))}`);
     console.log("---\n");
   }

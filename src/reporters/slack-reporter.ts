@@ -77,6 +77,7 @@ export class SlackReporter {
   private generateSummaryBlocks(reportData: Record<string, unknown>): KnownBlock[] {
     let errorPercent = 0;
     let failedChecks = 0;
+    let totalErrors = 0;
 
     if (reportData.httpReqFailed) {
       const failed = reportData.httpReqFailed as Record<string, number>;
@@ -88,7 +89,12 @@ export class SlackReporter {
       failedChecks = typeof checks.fails === "number" ? checks.fails : 0;
     }
 
-    const isSuccess = errorPercent < 1 && failedChecks === 0;
+    if (reportData.errorResponses) {
+      const errorResponses = reportData.errorResponses as Record<string, number>;
+      totalErrors = typeof errorResponses.count === "number" ? errorResponses.count : 0;
+    }
+
+    const isSuccess = errorPercent < 1 && failedChecks === 0 && totalErrors === 0;
     const status = isSuccess ? "PASS" : "FAIL";
     const statusEmoji = isSuccess ? "✅" : ":triangular_flag_on_post:";
 
@@ -97,7 +103,7 @@ export class SlackReporter {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `${statusEmoji} *${status}* • Error Rate: ${errorPercent.toFixed(2)}%`,
+          text: `${statusEmoji} *${status}* • Error Rate: ${errorPercent.toFixed(2)}% • Total Errors: ${totalErrors}`,
         },
       },
       {
