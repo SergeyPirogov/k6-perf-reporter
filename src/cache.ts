@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { ReporterResponse } from "./data-collector";
+import { logger } from "./logger";
 
 interface CacheEntry {
   timestamp: number;
@@ -31,6 +32,7 @@ export class Cache {
     const filePath = this.getCachePath(key);
 
     if (!fs.existsSync(filePath)) {
+      logger.debug(`Cache.get: miss (no file) key=${key}`);
       return null;
     }
 
@@ -39,12 +41,15 @@ export class Cache {
       const entry: CacheEntry = JSON.parse(raw);
 
       if (Date.now() - entry.timestamp > this.ttlMs) {
+        logger.debug(`Cache.get: expired key=${key}, age=${Math.round((Date.now() - entry.timestamp) / 1000)}s, ttl=${Math.round(this.ttlMs / 1000)}s`);
         fs.unlinkSync(filePath);
         return null;
       }
 
+      logger.debug(`Cache.get: hit key=${key}, age=${Math.round((Date.now() - entry.timestamp) / 1000)}s`);
       return entry.data;
     } catch {
+      logger.warn(`Cache.get: failed to read cache file ${filePath}`);
       return null;
     }
   }
@@ -63,5 +68,6 @@ export class Cache {
     };
 
     fs.writeFileSync(filePath, JSON.stringify(entry, null, 2), "utf-8");
+    logger.debug(`Cache.set: wrote key=${key} to ${filePath}`);
   }
 }

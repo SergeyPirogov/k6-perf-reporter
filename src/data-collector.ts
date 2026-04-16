@@ -14,6 +14,7 @@ import {
 } from "./metrics";
 import { Loader } from "./loader";
 import { Cache } from "./cache";
+import { logger } from "./logger";
 
 export { ReporterResponse } from "./types";
 
@@ -41,17 +42,22 @@ export class DataCollector {
     endTime: string = "now()",
     data: unknown = {}
   ): Promise<ReporterResponse> {
+    logger.info(`DataCollector.collect: runId=${runId}, range=[${startTime}, ${endTime}]`);
+
     if (this.cache) {
       const cached = this.cache.get(runId, startTime, endTime);
       if (cached) {
+        logger.info("DataCollector.collect: cache hit, skipping data fetch");
         this.loader.success("Loaded report from cache");
         return cached;
       }
+      logger.debug("DataCollector.collect: cache miss, fetching from datasource");
     }
 
     // Phase 1: Parallel bulk fetch — all independent queries at once
     this.loader.start("Fetching all data in parallel...");
     const fetchStart = Date.now();
+    logger.info("DataCollector.collect: starting parallel data fetch (9 queries)");
     const [
       httpReqsData,
       httpReqDurationData,
@@ -73,10 +79,17 @@ export class DataCollector {
       this.dataSource.extractIterationDuration(runId, startTime, endTime),
       this.dataSource.extractErrorResponsesText(runId, startTime, endTime),
     ]);
-    this.loader.success(`Data fetching finished in ${this.formatElapsed(Date.now() - fetchStart)}`);
+    const fetchElapsed = Date.now() - fetchStart;
+    logger.info(`DataCollector.collect: parallel fetch completed in ${fetchElapsed}ms`);
+    logger.debug(
+      `DataCollector.collect: fetched rows — httpReqs=${httpReqsData.length}, httpReqDuration=${httpReqDurationData.length}, ` +
+      `errorResponsesText=${errorResponsesText.responses.length}`
+    );
+    this.loader.success(`Data fetching finished in ${this.formatElapsed(fetchElapsed)}`);
 
     // Phase 2: Derive metrics from cached data (no additional queries)
     this.loader.start("Computing metrics...");
+    logger.info("DataCollector.collect: computing derived metrics");
 
     // Update iterations with duration info
     if (iterations.total > 0 && duration.durationSeconds > 0) {
@@ -94,6 +107,7 @@ export class DataCollector {
     const rpsPerUrl = extractRpsPerUrlFromData(httpReqsData);
     const rpsAggregated = extractRpsAggregatedFromData(httpReqsData);
 
+    logger.info("DataCollector.collect: all metrics computed");
     this.loader.success("Computed all metrics");
 
     const reportData = {
@@ -127,6 +141,7 @@ export class DataCollector {
 
     if (this.cache) {
       this.cache.set(runId, startTime, endTime, result);
+      logger.debug("DataCollector.collect: result cached");
     }
 
     return result;
