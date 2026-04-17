@@ -5,6 +5,49 @@ import { Config, DataSourceType } from "./config";
 import { DataCollector } from "./data-collector";
 import { createDataSource } from "./datasources";
 import { JsonReporter, CliReporter, SlackReporter, MarkdownReporter } from "./reporters";
+import { ReporterResponse } from "./types";
+
+const VALID_REPORTERS = ["cli", "json", "markdown", "slack"] as const;
+type ReporterName = (typeof VALID_REPORTERS)[number];
+
+function defaultOutputPath(name: ReporterName, runId: string): string | undefined {
+  const extensions: Partial<Record<ReporterName, string>> = {
+    json: "json",
+    markdown: "md",
+  };
+  const ext = extensions[name];
+  return ext ? `report-${runId}.${ext}` : undefined;
+}
+
+async function runReporter(
+  name: ReporterName,
+  report: ReporterResponse,
+  options: { output?: string },
+  configInstance: Config
+): Promise<void> {
+  const output = options.output || defaultOutputPath(name, report.runId);
+  switch (name) {
+    case "json":
+      new JsonReporter().report(report, output);
+      break;
+    case "markdown":
+      new MarkdownReporter().report(report, output);
+      break;
+    case "slack": {
+      const slackConfig = configInstance.getSlackConfig();
+      if (!slackConfig) {
+        throw new Error("Slack token not configured. Set SLACK_TOKEN environment variable or configure in config file.");
+      }
+      const slackReporter = new SlackReporter(slackConfig.token, slackConfig.channel);
+      await slackReporter.report(report);
+      console.log("Report sent to Slack");
+      break;
+    }
+    case "cli":
+      new CliReporter().report(report);
+      break;
+  }
+}
 
 function main(): void {
   program
@@ -21,10 +64,15 @@ function main(): void {
     .option("-c, --config <path>", "Path to config file", ".config.json")
     .option("-d, --datasource <type>", "Data source: 'influxdb' or 'prometheus'")
     .option("-f, --format <format>", "Output format: 'json', 'cli', 'markdown', or 'slack'", "cli")
-    .option("-o, --output <path>", "Output file path (for json format)")
+    .option("-r, --report <reporters>", "Run one or more reporters (comma-separated): cli, json, markdown, slack")
+    .option("-o, --output <path>", "Output file path (for json and markdown formats)")
     .option("--no-cache", "Disable cache, always fetch fresh data")
     .action(async (options) => {
       try {
+        if (options.report && options.format !== "cli") {
+          throw new Error("Cannot use --report and --format together. Use --report for multiple reporters.");
+        }
+
         const configInstance = Config.getInstance(options.config);
         const dsType = (options.datasource || configInstance.getDataSourceType()) as DataSourceType;
         const dataSource = createDataSource(dsType, configInstance);
@@ -36,23 +84,17 @@ function main(): void {
           options.endTime || "now()"
         );
 
-        if (options.format === "json") {
-          const jsonReporter = new JsonReporter();
-          jsonReporter.report(report, options.output);
-        } else if (options.format === "markdown") {
-          const markdownReporter = new MarkdownReporter();
-          markdownReporter.report(report, options.output);
-        } else if (options.format === "slack") {
-          const slackConfig = configInstance.getSlackConfig();
-          if (!slackConfig) {
-            throw new Error("Slack token not configured. Set SLACK_TOKEN environment variable or configure in config file.");
+        if (options.report) {
+          const reporters = options.report.split(",").map((r: string) => r.trim());
+          const invalid = reporters.filter((r: string) => !VALID_REPORTERS.includes(r as ReporterName));
+          if (invalid.length > 0) {
+            throw new Error(`Invalid reporter(s): ${invalid.join(", ")}. Valid options: ${VALID_REPORTERS.join(", ")}`);
           }
-          const slackReporter = new SlackReporter(slackConfig.token, slackConfig.channel);
-          await slackReporter.report(report);
-          console.log("Report sent to Slack");
+          for (const name of reporters) {
+            await runReporter(name as ReporterName, report, options, configInstance);
+          }
         } else {
-          const cliReporter = new CliReporter();
-          cliReporter.report(report);
+          await runReporter(options.format as ReporterName, report, options, configInstance);
         }
       } catch (error) {
         console.error("Error:", error instanceof Error ? error.message : error);
@@ -84,6 +126,7 @@ OPTIONS:
   -c, --config            Path to config file (default: .config.json)
   -d, --datasource        Data source: 'influxdb' or 'prometheus' (default: influxdb)
   -f, --format            Output format: 'json', 'cli', 'markdown', or 'slack' (default: cli)
+  -r, --report            Run one or more reporters (comma-separated): cli, json, markdown, slack
   -o, --output            Output file path (for json and markdown formats)
   --no-cache              Disable cache, always fetch fresh data
   -h, --help              Show command help
@@ -117,6 +160,12 @@ EXAMPLES:
 
   9. Get help for generate command:
      k6-reporter generate --help
+
+  10. Run multiple reporters at once:
+     k6-reporter generate --run-id 123456790121 --report cli,slack
+
+  11. Generate Markdown and JSON reports together:
+     k6-reporter generate --run-id 123456790121 --report markdown,json -o report
 
 TIME FORMAT:
 

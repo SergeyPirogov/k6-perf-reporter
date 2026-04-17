@@ -6,3 +6,4 @@ dist/
 .env.local
 .config.json
 .cache/
+report-980231.md
