@@ -5,6 +5,7 @@ import { Config, DataSourceType } from "./config";
 import { DataCollector } from "./data-collector";
 import { createDataSource } from "./datasources";
 import { JsonReporter, CliReporter, SlackReporter, MarkdownReporter } from "./reporters";
+import { logger } from "./logger";
 import { ReporterResponse } from "./types";
 
 const VALID_REPORTERS = ["cli", "json", "markdown", "slack"] as const;
@@ -26,12 +27,15 @@ async function runReporter(
   configInstance: Config
 ): Promise<void> {
   const output = options.output || defaultOutputPath(name, report.runId);
+  logger.info(`runReporter: starting reporter=${name}${output ? `, output=${output}` : ""}`);
   switch (name) {
     case "json":
       new JsonReporter().report(report, output);
+      logger.info(`runReporter: json report generated`);
       break;
     case "markdown":
       new MarkdownReporter().report(report, output);
+      logger.info(`runReporter: markdown report generated`);
       break;
     case "slack": {
       const slackConfig = configInstance.getSlackConfig();
@@ -40,11 +44,13 @@ async function runReporter(
       }
       const slackReporter = new SlackReporter(slackConfig.token, slackConfig.channel);
       await slackReporter.report(report);
+      logger.info(`runReporter: slack report sent to channel=${slackConfig.channel}`);
       console.log("Report sent to Slack");
       break;
     }
     case "cli":
       new CliReporter().report(report);
+      logger.info(`runReporter: cli report printed`);
       break;
   }
 }
@@ -86,6 +92,7 @@ function main(): void {
 
         if (options.report) {
           const reporters = options.report.split(",").map((r: string) => r.trim());
+          logger.info(`generate: using --report with reporters=[${reporters.join(", ")}]`);
           const invalid = reporters.filter((r: string) => !VALID_REPORTERS.includes(r as ReporterName));
           if (invalid.length > 0) {
             throw new Error(`Invalid reporter(s): ${invalid.join(", ")}. Valid options: ${VALID_REPORTERS.join(", ")}`);
