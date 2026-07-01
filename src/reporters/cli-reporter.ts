@@ -13,7 +13,16 @@ export class CliReporter {
     console.log("\n---");
     console.log(`Run ID: ${data.runId}`);
     console.log(`Start: ${data.startTime}`);
-    console.log(`End: ${data.endTime}\n`);
+    console.log(`End: ${data.endTime}`);
+
+    if (data.params && Object.keys(data.params).length > 0) {
+      console.log("\nExecution Parameters:");
+      for (const [key, value] of Object.entries(data.params)) {
+        console.log(`  ${key}: ${value}`);
+      }
+    }
+
+    console.log("");
   }
 
   private printReport(data: ReporterResponse): void {

@@ -73,6 +73,7 @@ function main(): void {
     .option("-r, --report <reporters>", "Run one or more reporters (comma-separated): cli, json, markdown, slack")
     .option("-o, --output <path>", "Output file path (for json and markdown formats)")
     .option("--no-cache", "Disable cache, always fetch fresh data")
+    .option("-p, --params <params...>", "Execution parameters as key=value pairs (e.g. --params env=prod branch=main)")
     .action(async (options) => {
       try {
         if (options.report && options.format !== "cli") {
@@ -89,6 +90,16 @@ function main(): void {
           options.startTime || "-1h",
           options.endTime || "now()"
         );
+
+        if (options.params) {
+          const params: Record<string, string> = {};
+          for (const entry of options.params as string[]) {
+            const idx = entry.indexOf("=");
+            if (idx < 1) throw new Error(`Invalid param format: '${entry}'. Expected key=value`);
+            params[entry.slice(0, idx)] = entry.slice(idx + 1);
+          }
+          report.params = params;
+        }
 
         if (options.report) {
           const reporters = options.report.split(",").map((r: string) => r.trim());

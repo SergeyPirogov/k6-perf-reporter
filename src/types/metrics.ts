@@ -147,4 +147,5 @@ export interface ReporterResponse {
   endTime: string;
   timestamp: string;
   data: unknown;
+  params?: Record<string, string>;
 }

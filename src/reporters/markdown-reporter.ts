@@ -23,6 +23,17 @@ export class MarkdownReporter {
     markdown += `- **Start:** ${data.startTime}\n`;
     markdown += `- **End:** ${data.endTime}\n\n`;
 
+    // Execution parameters
+    if (data.params && Object.keys(data.params).length > 0) {
+      markdown += `## Execution Parameters\n\n`;
+      markdown += `| Parameter | Value |\n`;
+      markdown += `|-----------|-------|\n`;
+      for (const [key, value] of Object.entries(data.params)) {
+        markdown += `| ${key} | ${value} |\n`;
+      }
+      markdown += "\n";
+    }
+
     // Summary section
     markdown += this.generateSummary(reportData);
 

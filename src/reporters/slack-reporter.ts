@@ -28,11 +28,30 @@ export class SlackReporter {
     const blocks: KnownBlock[] = [];
 
     blocks.push(...this.generateHeaderBlocks(data));
+    if (data.params && Object.keys(data.params).length > 0) {
+      blocks.push(...this.generateParamsBlocks(data.params));
+    }
     blocks.push(...this.generateMetricsBlocks(reportData));
     blocks.push(...this.generateSummaryBlocks(reportData));
     blocks.push(...this.generateTableBlocks(reportData));
 
     return blocks;
+  }
+
+  private generateParamsBlocks(params: Record<string, string>): KnownBlock[] {
+    const text = Object.entries(params).map(([k, v]) => `• *${k}:* ${v}`).join("\n");
+    return [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Execution Parameters*\n${text}`,
+        },
+      },
+      {
+        type: "divider",
+      },
+    ];
   }
 
   private generateHeaderBlocks(data: ReporterResponse): KnownBlock[] {
