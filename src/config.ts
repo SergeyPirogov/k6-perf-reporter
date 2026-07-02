@@ -24,6 +24,7 @@ interface RawConfig {
   influx?: Record<string, unknown>;
   slack?: Record<string, unknown>;
   cache?: Record<string, unknown>;
+  ignoredStatusCodes?: unknown;
 }
 
 export class Config {
@@ -33,6 +34,7 @@ export class Config {
   private slackConfig: SlackConfig | null = null;
   private cacheConfig: CacheConfig;
   private configPath: string;
+  private ignoredStatusCodes: number[];
 
   private constructor(configPath?: string) {
     this.configPath = configPath || ".config.json";
@@ -41,6 +43,7 @@ export class Config {
     this.rawInflux = rawConfig.influx;
     this.slackConfig = this.parseSlackConfig(rawConfig.slack);
     this.cacheConfig = this.parseCacheConfig(rawConfig.cache);
+    this.ignoredStatusCodes = this.parseIgnoredStatusCodes(rawConfig.ignoredStatusCodes);
   }
 
   private loadRawConfig(): RawConfig {
@@ -113,6 +116,17 @@ export class Config {
     return { ttl: DEFAULT_TTL };
   }
 
+  private parseIgnoredStatusCodes(raw: unknown): number[] {
+    const envValue = process.env["IGNORE_STATUS_CODES"];
+    if (envValue) {
+      return envValue.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
+    }
+    if (Array.isArray(raw)) {
+      return raw.filter((v) => typeof v === "number") as number[];
+    }
+    return [];
+  }
+
   private resolveValue(configValue: string | undefined, envVar: string): string | null {
     // First check environment variable (takes priority)
     const envValue = process.env[envVar];
@@ -122,6 +136,10 @@ export class Config {
 
     // Fall back to config value
     return configValue || null;
+  }
+
+  getIgnoredStatusCodes(): number[] {
+    return this.ignoredStatusCodes;
   }
 
   static getInstance(configPath?: string): Config {

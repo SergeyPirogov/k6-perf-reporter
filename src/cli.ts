@@ -74,6 +74,7 @@ function main(): void {
     .option("-o, --output <path>", "Output file path (for json and markdown formats)")
     .option("--no-cache", "Disable cache, always fetch fresh data")
     .option("-p, --params <params...>", "Execution parameters as key=value pairs (e.g. --params env=prod branch=main)")
+    .option("--ignore-status-codes <codes>", "Comma-separated HTTP status codes to exclude from error metrics (e.g. 404,401)")
     .action(async (options) => {
       try {
         if (options.report && options.format !== "cli") {
@@ -85,10 +86,17 @@ function main(): void {
         const dataSource = createDataSource(dsType, configInstance);
         const cacheTtl = options.cache ? configInstance.getCacheConfig().ttl : 0;
         const collector = new DataCollector(dataSource, cacheTtl);
+
+        const ignoredStatusCodes: number[] = options.ignoreStatusCodes
+          ? options.ignoreStatusCodes.split(",").map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))
+          : configInstance.getIgnoredStatusCodes();
+
         const report = await collector.collect(
           options.runId,
           options.startTime || "-1h",
-          options.endTime || "now()"
+          options.endTime || "now()",
+          {},
+          ignoredStatusCodes
         );
 
         if (options.params) {
@@ -147,6 +155,7 @@ OPTIONS:
   -r, --report            Run one or more reporters (comma-separated): cli, json, markdown, slack
   -o, --output            Output file path (for json and markdown formats)
   --no-cache              Disable cache, always fetch fresh data
+  --ignore-status-codes   Comma-separated status codes to exclude from errors (e.g. 404,401)
   -h, --help              Show command help
   -V, --version           Show version
 
@@ -207,7 +216,8 @@ CONFIG FILE:
       "token": "your-influx-token",
       "org": "your-org",
       "bucket": "your-bucket"
-    }
+    },
+    "ignoredStatusCodes": [404, 401]
   }
 
 ENVIRONMENT VARIABLES:
@@ -220,6 +230,7 @@ ENVIRONMENT VARIABLES:
   SLACK_TOKEN        Slack bot token
   SLACK_CHANNEL      Slack channel ID
   CACHE_TTL          Cache TTL in seconds (default: 3600)
+  IGNORE_STATUS_CODES  Comma-separated status codes to ignore (e.g. 404,401)
       `);
     });
 

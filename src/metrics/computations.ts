@@ -36,7 +36,8 @@ export function extractHttpReqsFromData(
 }
 
 export function extractHttpReqFailedFromData(
-  data: HttpReqsRow[]
+  data: HttpReqsRow[],
+  ignoredStatusCodes: number[] = []
 ): HttpReqFailedMetric {
   if (data.length === 0) {
     logger.info("extractHttpReqFailed: no data found, returning zeros");
@@ -44,7 +45,7 @@ export function extractHttpReqFailedFromData(
   }
 
   const total = data.length;
-  const failed = data.filter((r) => r.status > 400).length;
+  const failed = data.filter((r) => r.status > 400 && !ignoredStatusCodes.includes(r.status)).length;
   const failureRate = total > 0 ? (failed / total) * 100 : 0;
 
   logger.info(`extractHttpReqFailed: total=${total}, failed=${failed}, failureRate=${failureRate.toFixed(2)}%`);
@@ -95,14 +96,15 @@ export function extractHttpReqDurationSuccessFromData(
 
 export function extractErrorResponsesFromData(
   data: HttpReqsRow[],
-  duration: DurationMetric
+  duration: DurationMetric,
+  ignoredStatusCodes: number[] = []
 ): ErrorResponsesMetric {
   if (data.length === 0) {
     logger.info("extractErrorResponses: no data found, returning zeros");
     return { count: 0, rate: 0 };
   }
 
-  const count = data.filter((r) => r.status > 300).length;
+  const count = data.filter((r) => r.status > 300 && !ignoredStatusCodes.includes(r.status)).length;
   const rate = duration.durationSeconds > 0 ? count / duration.durationSeconds : 0;
 
   logger.info(`extractErrorResponses: count=${count}, rate=${rate.toFixed(2)} err/s`);
@@ -111,23 +113,24 @@ export function extractErrorResponsesFromData(
 
 export function extractErrorRequestsFromData(
   httpReqsData: HttpReqsRow[],
-  httpReqDurationData: HttpReqDurationRow[]
+  httpReqDurationData: HttpReqDurationRow[],
+  ignoredStatusCodes: number[] = []
 ): ErrorRequestsMetric {
   if (httpReqsData.length === 0 && httpReqDurationData.length === 0) {
     logger.info("extractErrorRequests: no data found, returning empty list");
     return { errors: [] };
   }
 
-  const errorReqs = httpReqsData.filter((r) => r.status > 400);
+  const errorReqs = httpReqsData.filter((r) => r.status > 400 && !ignoredStatusCodes.includes(r.status));
   logger.debug(`extractErrorRequests: ${errorReqs.length} error rows out of ${httpReqsData.length} total`);
 
-  if (errorReqs.length === 0 && httpReqDurationData.filter((r) => r.status >= 400).length === 0) {
+  if (errorReqs.length === 0 && httpReqDurationData.filter((r) => r.status >= 400 && !ignoredStatusCodes.includes(r.status)).length === 0) {
     logger.info("extractErrorRequests: no error requests found");
     return { errors: [] };
   }
 
   // Build duration map from httpReqDurationData (error rows, keyed by method+url+status)
-  const errorDurations = httpReqDurationData.filter((r) => r.status >= 400);
+  const errorDurations = httpReqDurationData.filter((r) => r.status >= 400 && !ignoredStatusCodes.includes(r.status));
   const durationMap = new Map<string, { durations: number[]; method: string; url: string; status: number; count: number }>();
 
   errorDurations.forEach((r) => {

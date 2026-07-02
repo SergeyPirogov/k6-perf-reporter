@@ -38,9 +38,10 @@ export class DataCollector {
     runId: string,
     startTime: string = "-1h",
     endTime: string = "now()",
-    data: unknown = {}
+    data: unknown = {},
+    ignoredStatusCodes: number[] = []
   ): Promise<ReporterResponse> {
-    logger.info(`DataCollector.collect: runId=${runId}, range=[${startTime}, ${endTime}]`);
+    logger.info(`DataCollector.collect: runId=${runId}, range=[${startTime}, ${endTime}]${ignoredStatusCodes.length > 0 ? `, ignoredStatusCodes=[${ignoredStatusCodes.join(",")}]` : ""}`);
 
     if (this.cache) {
       const cached = this.cache.get(runId, startTime, endTime);
@@ -95,11 +96,11 @@ export class DataCollector {
     }
 
     const httpReqs = extractHttpReqsFromData(httpReqsData, duration);
-    const httpReqFailed = extractHttpReqFailedFromData(httpReqsData);
+    const httpReqFailed = extractHttpReqFailedFromData(httpReqsData, ignoredStatusCodes);
     const httpReqDuration = extractHttpReqDurationFromData(httpReqDurationData);
     const httpReqDurationSuccess = extractHttpReqDurationSuccessFromData(httpReqDurationData);
-    const errorResponses = extractErrorResponsesFromData(httpReqsData, duration);
-    const errorRequests = extractErrorRequestsFromData(httpReqsData, httpReqDurationData);
+    const errorResponses = extractErrorResponsesFromData(httpReqsData, duration, ignoredStatusCodes);
+    const errorRequests = extractErrorRequestsFromData(httpReqsData, httpReqDurationData, ignoredStatusCodes);
     const requests = extractRequestsFromData(httpReqsData, httpReqDurationData);
     const rpsAggregated = extractRpsAggregatedFromData(httpReqsData);
 
