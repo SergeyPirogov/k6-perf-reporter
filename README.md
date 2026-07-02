@@ -52,7 +52,8 @@ Configuration can be provided via config file (`.config.json`) or environment va
   "slack": {
     "token": "${SLACK_TOKEN}",
     "channel": "#k6-reports"
-  }
+  },
+  "ignoredStatusCodes": [404, 401]
 }
 ```
 
@@ -68,6 +69,9 @@ export INFLUX_BUCKET=k6
 # Slack Configuration (optional)
 export SLACK_TOKEN=xoxb-your-slack-token
 export SLACK_CHANNEL=#k6-reports
+
+# Ignored status codes (optional)
+export IGNORE_STATUS_CODES=404,401
 ```
 
 **Note:** Environment variables support `${ENV_VAR}` references in config file (e.g., `"token": "${INFLUX_TOKEN}"`).
@@ -166,12 +170,17 @@ See [example markdown report](examples/report.example.md) for output format.
 ### Command Options
 
 ```
---run-id <id>              k6 test run ID (required)
--st, --start-time <time>   Start time (relative: -1h, -30m, or ISO 8601)
--et, --end-time <time>     End time (ISO 8601 format, defaults to now)
--c, --config <path>        Path to config file (default: .config.json)
--f, --format <format>      Output format: 'json', 'cli', 'markdown', or 'slack' (default: cli)
--o, --output <path>        Output file path (for json and markdown formats)
+--run-id <id>                  k6 test run ID (required)
+-st, --start-time <time>       Start time (relative: -1h, -30m, or ISO 8601)
+-et, --end-time <time>         End time (ISO 8601 format, defaults to now)
+-c, --config <path>            Path to config file (default: .config.json)
+-d, --datasource <type>        Data source: 'influxdb' or 'prometheus' (default: influxdb)
+-f, --format <format>          Output format: 'json', 'cli', 'markdown', or 'slack' (default: cli)
+-r, --report <reporters>       Run multiple reporters (comma-separated): cli, json, markdown, slack
+-o, --output <path>            Output file path (for json and markdown formats)
+--no-cache                     Disable cache, always fetch fresh data
+-p, --params <params...>       Execution parameters as key=value pairs (e.g. --params env=prod)
+--ignore-status-codes <codes>  Comma-separated HTTP status codes to exclude from error metrics
 ```
 
 ### Time Format Examples
@@ -215,6 +224,29 @@ See [example markdown report](examples/report.example.md) for output format.
 - Iteration duration (min, max, avg, p90, p95)
 - Virtual users (current, min, max)
 
+## Ignoring Status Codes
+
+Some status codes (e.g. `404`, `401`) may be expected in your test and shouldn't count as errors. Use `ignoredStatusCodes` to exclude them from failed request counts, error response counts, and error breakdowns.
+
+**CLI flag:**
+```bash
+k6-reporter generate --run-id 123 --ignore-status-codes 404,401
+```
+
+**Environment variable:**
+```bash
+IGNORE_STATUS_CODES=404,401 k6-reporter generate --run-id 123
+```
+
+**Config file:**
+```json
+{
+  "ignoredStatusCodes": [404, 401]
+}
+```
+
+CLI flag takes precedence over config file. Config file takes precedence over the environment variable only when the env var is absent.
+
 ## Configuration Loading Priority
 
 For each configuration value, the system checks in this order:
@@ -222,6 +254,7 @@ For each configuration value, the system checks in this order:
 1. **Environment variables** (highest priority)
    - `INFLUX_URL`, `INFLUX_TOKEN`, `INFLUX_ORG`, `INFLUX_BUCKET`
    - `SLACK_TOKEN`, `SLACK_CHANNEL`
+   - `IGNORE_STATUS_CODES` (comma-separated, e.g. `404,401`)
 
 2. **Config file values**
    - `.config.json` or custom path via `-c` option
