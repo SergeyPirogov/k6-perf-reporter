@@ -217,6 +217,9 @@ export class CliReporter {
     console.log(`${chalk.gray("Error Rate:")} ${chalk.cyan(errorPercent.toFixed(2) + "%")}`);
     console.log(`${chalk.gray("Total Errors:")} ${chalk.cyan(String(totalErrors))}`);
     console.log(`${chalk.gray("Failed Checks:")} ${chalk.cyan(String(failedChecks))}`);
+    if (data.ignoredStatusCodes && data.ignoredStatusCodes.length > 0) {
+      console.log(`${chalk.gray("Ignored Status Codes:")} ${chalk.cyan(data.ignoredStatusCodes.join(", "))}`);
+    }
     console.log("---\n");
   }
 }

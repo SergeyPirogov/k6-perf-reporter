@@ -148,4 +148,5 @@ export interface ReporterResponse {
   timestamp: string;
   data: unknown;
   params?: Record<string, string>;
+  ignoredStatusCodes?: number[];
 }

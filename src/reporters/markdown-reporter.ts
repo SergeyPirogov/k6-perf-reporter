@@ -35,7 +35,7 @@ export class MarkdownReporter {
     }
 
     // Summary section
-    markdown += this.generateSummary(reportData);
+    markdown += this.generateSummary(reportData, data);
 
     // Main metrics
     markdown += this.generateMetrics(reportData);
@@ -46,7 +46,7 @@ export class MarkdownReporter {
     return markdown;
   }
 
-  private generateSummary(reportData: Record<string, unknown>): string {
+  private generateSummary(reportData: Record<string, unknown>, data: ReporterResponse): string {
     let summary = "## Summary\n\n";
 
     let errorPercent = 0;
@@ -76,7 +76,11 @@ export class MarkdownReporter {
     summary += `|--------|-------|\n`;
     summary += `| Error Rate | ${errorPercent.toFixed(2)}% |\n`;
     summary += `| Total Errors | ${totalErrors} |\n`;
-    summary += `| Failed Checks | ${failedChecks} |\n\n`;
+    summary += `| Failed Checks | ${failedChecks} |\n`;
+    if (data.ignoredStatusCodes && data.ignoredStatusCodes.length > 0) {
+      summary += `| Ignored Status Codes | ${data.ignoredStatusCodes.join(", ")} |\n`;
+    }
+    summary += "\n";
 
     return summary;
   }

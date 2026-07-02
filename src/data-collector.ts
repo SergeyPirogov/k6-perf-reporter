@@ -132,6 +132,7 @@ export class DataCollector {
       endTime: duration.endTime || endTime,
       timestamp: new Date().toISOString(),
       data: reportData,
+      ...(ignoredStatusCodes.length > 0 ? { ignoredStatusCodes } : {}),
     };
 
     if (this.cache) {

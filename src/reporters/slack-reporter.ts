@@ -32,7 +32,7 @@ export class SlackReporter {
       blocks.push(...this.generateParamsBlocks(data.params));
     }
     blocks.push(...this.generateMetricsBlocks(reportData));
-    blocks.push(...this.generateSummaryBlocks(reportData));
+    blocks.push(...this.generateSummaryBlocks(reportData, data));
     blocks.push(...this.generateTableBlocks(reportData));
 
     return blocks;
@@ -93,7 +93,7 @@ export class SlackReporter {
     ];
   }
 
-  private generateSummaryBlocks(reportData: Record<string, unknown>): KnownBlock[] {
+  private generateSummaryBlocks(reportData: Record<string, unknown>, data: ReporterResponse): KnownBlock[] {
     let errorPercent = 0;
     let failedChecks = 0;
     let totalErrors = 0;
@@ -117,12 +117,17 @@ export class SlackReporter {
     const status = isSuccess ? "PASS" : "FAIL";
     const statusEmoji = isSuccess ? "✅" : ":triangular_flag_on_post:";
 
+    let summaryText = `${statusEmoji} *${status}* • Error Rate: ${errorPercent.toFixed(2)}% • Total Errors: ${totalErrors}`;
+    if (data.ignoredStatusCodes && data.ignoredStatusCodes.length > 0) {
+      summaryText += `\nIgnored Status Codes: ${data.ignoredStatusCodes.join(", ")}`;
+    }
+
     return [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `${statusEmoji} *${status}* • Error Rate: ${errorPercent.toFixed(2)}% • Total Errors: ${totalErrors}`,
+          text: summaryText,
         },
       },
       {
