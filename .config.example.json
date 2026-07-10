@@ -5,6 +5,15 @@
     "org": "my-org",
     "bucket": "k6"
   },
+  "victoriametrics": {
+    "url": "http://localhost:8428",
+    "auth": {
+      "token": "${VM_TOKEN}"
+    },
+    "naming": {
+      "urlLabel": "name"
+    }
+  },
   "slack": {
     "token": "${SLACK_TOKEN}",
     "channel": "#k6-reports"

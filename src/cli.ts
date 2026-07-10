@@ -68,7 +68,7 @@ function main(): void {
     .option("-st, --start-time <time>", "Start time in ISO 8601 format or relative like '-1h'")
     .option("-et, --end-time <time>", "End time in ISO 8601 format (defaults to now)")
     .option("-c, --config <path>", "Path to config file", ".config.json")
-    .option("-d, --datasource <type>", "Data source: 'influxdb' or 'prometheus'")
+    .option("-d, --datasource <type>", "Data source: 'influxdb', 'victoriametrics', or 'prometheus'")
     .option("-f, --format <format>", "Output format: 'json', 'cli', 'markdown', or 'slack'", "cli")
     .option("-r, --report <reporters>", "Run one or more reporters (comma-separated): cli, json, markdown, slack")
     .option("-o, --output <path>", "Output file path (for json and markdown formats)")
@@ -150,7 +150,7 @@ OPTIONS:
   -st, --start-time       Start time (relative: -1h, -30m, or ISO 8601)
   -et, --end-time         End time (ISO 8601 format, defaults to now)
   -c, --config            Path to config file (default: .config.json)
-  -d, --datasource        Data source: 'influxdb' or 'prometheus' (default: influxdb)
+  -d, --datasource        Data source: 'influxdb', 'victoriametrics', or 'prometheus' (default: influxdb)
   -f, --format            Output format: 'json', 'cli', 'markdown', or 'slack' (default: cli)
   -r, --report            Run one or more reporters (comma-separated): cli, json, markdown, slack
   -o, --output            Output file path (for json and markdown formats)
@@ -185,10 +185,13 @@ EXAMPLES:
   8. Use Prometheus datasource:
      k6-reporter generate --run-id 123456790121 -d prometheus
 
-  9. Get help for generate command:
+  9. Use VictoriaMetrics datasource:
+     k6-reporter generate --run-id 123456790121 -d victoriametrics
+
+  10. Get help for generate command:
      k6-reporter generate --help
 
-  10. Run multiple reporters at once:
+  11. Run multiple reporters at once:
      k6-reporter generate --run-id 123456790121 --report cli,slack
 
   11. Generate Markdown and JSON reports together:
@@ -217,16 +220,35 @@ CONFIG FILE:
       "org": "your-org",
       "bucket": "your-bucket"
     },
+    "victoriametrics": {
+      "url": "http://localhost:8428",
+      "auth": { "token": "your-bearer-token" },
+      "naming": {
+        "trendUnitSuffix": "_seconds",
+        "urlLabel": "name"
+      }
+    },
     "ignoredStatusCodes": [404, 401]
   }
 
 ENVIRONMENT VARIABLES:
 
-  DATASOURCE         Data source type (influxdb, prometheus)
+  DATASOURCE         Data source type (influxdb, victoriametrics, prometheus)
   INFLUX_URL         InfluxDB URL
   INFLUX_TOKEN       InfluxDB token
   INFLUX_ORG         InfluxDB organization
   INFLUX_BUCKET      InfluxDB bucket
+  VM_URL             VictoriaMetrics URL (e.g. http://localhost:8428)
+  VM_TOKEN           VictoriaMetrics bearer token (optional)
+  VM_USERNAME        VictoriaMetrics basic-auth username (optional)
+  VM_PASSWORD        VictoriaMetrics basic-auth password (optional)
+  VM_METRIC_PREFIX   k6 metric prefix (default: k6_)
+  VM_RUNID_LABEL     Label key carrying the run ID (default: runId)
+  VM_URL_LABEL       Label key carrying the request URL (default: name)
+  VM_TREND_UNIT_SUFFIX  Duration metric unit suffix (default: _seconds)
+  VM_TREND_UNIT_MULTIPLIER  Duration unit→ms multiplier (default: 1000)
+  VM_ERROR_METRIC    Error counter metric name (default: k6_error_responses_total)
+  VM_STEP_SECONDS    query_range step in seconds (default: 1)
   SLACK_TOKEN        Slack bot token
   SLACK_CHANNEL      Slack channel ID
   CACHE_TTL          Cache TTL in seconds (default: 3600)

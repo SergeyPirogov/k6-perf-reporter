@@ -13,6 +13,8 @@
     "start": "node dist/index.js",
     "report": "tsx src/cli.ts",
     "report:example": "LOG_LEVEL=info tsx src/cli.ts generate --run-id '980231' -st '-24h' --report slack,markdown",
+    "report:example:influx": "tsx src/cli.ts generate --run-id '980231' -d influxdb -st '-1h' --format cli",
+    "report:example:vm": "tsx src/cli.ts generate --run-id '980231' -d victoriametrics -st '-1h' --format cli",
     "lint": "eslint src",
     "type-check": "tsc --noEmit"
   },

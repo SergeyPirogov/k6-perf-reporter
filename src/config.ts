@@ -1,7 +1,38 @@
 import fs from "fs";
 import path from "path";
 
-export type DataSourceType = "influxdb" | "prometheus";
+export type DataSourceType = "influxdb" | "prometheus" | "victoriametrics";
+
+export interface VictoriaMetricsAuth {
+  username?: string;
+  password?: string;
+  token?: string;
+}
+
+export interface VictoriaMetricsNaming {
+  metricPrefix: string;
+  counterSuffix: string;
+  runIdLabel: string;
+  urlLabel: string;
+  methodLabel: string;
+  statusLabel: string;
+  trendStatSuffixFormat: "underscore" | "paren";
+  trendUnitSuffix: string;
+  trendUnitMultiplier: number;
+  errorMetric: string;
+  errorEndpointLabel: string;
+  errorStatusLabel: string;
+  errorErrLabel: string;
+  errorMethodLabel: string;
+  checksLabel: string;
+  stepSeconds: number;
+}
+
+export interface VictoriaMetricsConfig {
+  url: string;
+  auth?: VictoriaMetricsAuth;
+  naming: VictoriaMetricsNaming;
+}
 
 export interface InfluxConfig {
   url: string;
@@ -22,6 +53,7 @@ export interface CacheConfig {
 interface RawConfig {
   dataSource?: string;
   influx?: Record<string, unknown>;
+  victoriametrics?: Record<string, unknown>;
   slack?: Record<string, unknown>;
   cache?: Record<string, unknown>;
   ignoredStatusCodes?: unknown;
@@ -31,6 +63,7 @@ export class Config {
   private static instance: Config;
   private dataSourceType: DataSourceType;
   private rawInflux: Record<string, unknown> | undefined;
+  private rawVictoria: Record<string, unknown> | undefined;
   private slackConfig: SlackConfig | null = null;
   private cacheConfig: CacheConfig;
   private configPath: string;
@@ -41,6 +74,7 @@ export class Config {
     const rawConfig = this.loadRawConfig();
     this.dataSourceType = this.parseDataSourceType(rawConfig.dataSource);
     this.rawInflux = rawConfig.influx;
+    this.rawVictoria = rawConfig.victoriametrics;
     this.slackConfig = this.parseSlackConfig(rawConfig.slack);
     this.cacheConfig = this.parseCacheConfig(rawConfig.cache);
     this.ignoredStatusCodes = this.parseIgnoredStatusCodes(rawConfig.ignoredStatusCodes);
@@ -64,8 +98,8 @@ export class Config {
   private parseDataSourceType(raw: string | undefined): DataSourceType {
     const envValue = process.env["DATASOURCE"];
     const value = envValue || raw || "influxdb";
-    if (value !== "influxdb" && value !== "prometheus") {
-      throw new Error(`Unknown datasource type: '${value}'. Supported: influxdb, prometheus`);
+    if (value !== "influxdb" && value !== "prometheus" && value !== "victoriametrics") {
+      throw new Error(`Unknown datasource type: '${value}'. Supported: influxdb, prometheus, victoriametrics`);
     }
     return value;
   }
@@ -84,6 +118,72 @@ export class Config {
     }
 
     return { url, token, org, bucket };
+  }
+
+  getVictoriaMetricsConfig(): VictoriaMetricsConfig {
+    const url = this.resolveValue(this.rawVictoria?.url as string | undefined, "VM_URL");
+
+    if (!url) {
+      throw new Error(
+        "VictoriaMetrics configuration is incomplete. " +
+        "Set VM_URL via environment variable or configure in config file."
+      );
+    }
+
+    const username = this.resolveValue(
+      (this.rawVictoria?.auth as Record<string, unknown> | undefined)?.username as string | undefined,
+      "VM_USERNAME"
+    );
+    const password = this.resolveValue(
+      (this.rawVictoria?.auth as Record<string, unknown> | undefined)?.password as string | undefined,
+      "VM_PASSWORD"
+    );
+    const token = this.resolveValue(
+      (this.rawVictoria?.auth as Record<string, unknown> | undefined)?.token as string | undefined,
+      "VM_TOKEN"
+    );
+
+    const auth: VictoriaMetricsAuth | undefined =
+      token || username ? { ...(token ? { token } : {}), ...(username ? { username } : {}), ...(password ? { password } : {}) } : undefined;
+
+    const rawNaming = this.rawVictoria?.naming as Record<string, unknown> | undefined;
+    const naming = this.resolveNaming(rawNaming);
+
+    return { url, ...(auth ? { auth } : {}), naming };
+  }
+
+  private resolveNaming(raw: Record<string, unknown> | undefined): VictoriaMetricsNaming {
+    const str = (key: string, envVar: string, defaultVal: string): string =>
+      this.resolveValue(raw?.[key] as string | undefined, envVar) ?? defaultVal;
+
+    const num = (key: string, envVar: string, defaultVal: number): number => {
+      const envVal = process.env[envVar];
+      if (envVal) return parseFloat(envVal);
+      const cfgVal = raw?.[key];
+      if (typeof cfgVal === "number") return cfgVal;
+      return defaultVal;
+    };
+
+    const suffixFormat = str("trendStatSuffixFormat", "VM_TREND_STAT_SUFFIX_FORMAT", "underscore");
+
+    return {
+      metricPrefix: str("metricPrefix", "VM_METRIC_PREFIX", "k6_"),
+      counterSuffix: str("counterSuffix", "VM_COUNTER_SUFFIX", "_total"),
+      runIdLabel: str("runIdLabel", "VM_RUNID_LABEL", "runId"),
+      urlLabel: str("urlLabel", "VM_URL_LABEL", "name"),
+      methodLabel: str("methodLabel", "VM_METHOD_LABEL", "method"),
+      statusLabel: str("statusLabel", "VM_STATUS_LABEL", "status"),
+      trendStatSuffixFormat: (suffixFormat === "paren" ? "paren" : "underscore") as "underscore" | "paren",
+      trendUnitSuffix: str("trendUnitSuffix", "VM_TREND_UNIT_SUFFIX", ""),
+      trendUnitMultiplier: num("trendUnitMultiplier", "VM_TREND_UNIT_MULTIPLIER", 1000),
+      errorMetric: str("errorMetric", "VM_ERROR_METRIC", "k6_error_responses_total"),
+      errorEndpointLabel: str("errorEndpointLabel", "VM_ERROR_ENDPOINT_LABEL", "endpoint"),
+      errorStatusLabel: str("errorStatusLabel", "VM_ERROR_STATUS_LABEL", "status"),
+      errorErrLabel: str("errorErrLabel", "VM_ERROR_ERR_LABEL", "err"),
+      errorMethodLabel: str("errorMethodLabel", "VM_ERROR_METHOD_LABEL", "method"),
+      checksLabel: str("checksLabel", "VM_CHECKS_LABEL", "check"),
+      stepSeconds: num("stepSeconds", "VM_STEP_SECONDS", 1),
+    };
   }
 
   private parseSlackConfig(rawConfig: Record<string, unknown> | undefined): SlackConfig | null {
