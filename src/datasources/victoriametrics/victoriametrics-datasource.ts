@@ -103,28 +103,40 @@ export class VictoriaMetricsDataSource implements DataSource {
   async fetchHttpReqDurationData(runId: string, startTime: string, endTime: string): Promise<HttpReqDurationRow[]> {
     logger.debug(`fetchHttpReqDurationData: runId=${runId}, range=[${startTime}, ${endTime}]`);
     const { startSec, endSec } = resolveTimeRange(startTime, endTime);
-    const windowSec = endSec - startSec;
     const sel = this.sel(runId);
 
     // Step 1: counts per (url, method, status) — sum across instance_ids
     const urlL = this.naming.urlLabel;
     const methodL = this.naming.methodLabel;
     const statusL = this.naming.statusLabel;
-    const countQuery = `sum by(${urlL},${methodL},${statusL})(increase(${this.counter("http_reqs")}${sel}[${windowSec}s]))`;
-    const countSeries = await this.client.query(countQuery, endSec);
+    const S = this.naming.stepSeconds;
+    const countQuery = `sum by(${urlL},${methodL},${statusL})(increase(${this.counter("http_reqs")}${sel}[${S}s]))`;
+    const countRange = await this.client.queryRange(countQuery, startSec, endSec, S);
 
-    if (!countSeries.length) {
+    if (!countRange.length) {
       logger.info("fetchHttpReqDurationData: no request count data, returning empty");
       return [];
     }
 
-    // Step 2: per-stat series — avg across instance_ids, last_over_time to handle stale data
+    // Collapse range count series to total per (url, method, status)
+    const countSeries: VMInstantResult[] = countRange.map((s) => {
+      const total = s.values.reduce((sum, [, v]) => sum + parseFloat(v), 0);
+      return { metric: s.metric, value: [endSec, String(total)] };
+    });
+
+    // Step 2: per-stat series — range query then take last non-NaN value per series
     const statsToFetch = ["min", "p50", "p90", "p95", "max", "avg"] as const;
     const statResults = await Promise.all(
       statsToFetch.map(async (stat) => {
         const name = this.buildDurationStatMetric(stat);
-        const q = `avg by(${urlL},${methodL},${statusL})(last_over_time(${name}${sel}[${windowSec}s]))`;
-        const res = await this.client.query(q, endSec);
+        const agg = (stat === "min") ? "min" : (stat === "avg") ? "avg" : "max";
+        const q = `${agg} by(${urlL},${methodL},${statusL})(${name}${sel})`;
+        const range = await this.client.queryRange(q, startSec, endSec, S);
+        // Collapse to last non-zero value per series
+        const res: VMInstantResult[] = range.map((s) => {
+          const last = [...s.values].reverse().find(([, v]) => parseFloat(v) > 0);
+          return { metric: s.metric, value: last ?? [endSec, "0"] };
+        });
         return { stat, res } as { stat: typeof statsToFetch[number]; res: VMInstantResult[] };
       })
     );
@@ -167,7 +179,7 @@ export class VictoriaMetricsDataSource implements DataSource {
       const count = countMap.get(key) ?? 1;
       const synthetic = synthesizeDurationRows(count, stats.min, stats.p50, stats.p90, stats.p95, stats.max);
       for (const val of synthetic) {
-        rows.push({ _value: val, url: stats.url, method: stats.method, status: stats.status });
+        rows.push({ _value: val, _avg: stats.avg, url: stats.url, method: stats.method, status: stats.status });
       }
     }
 
@@ -335,17 +347,17 @@ export class VictoriaMetricsDataSource implements DataSource {
   async extractIterationDuration(runId: string, startTime: string, endTime: string): Promise<IterationDurationMetric> {
     logger.debug(`extractIterationDuration: runId=${runId}, range=[${startTime}, ${endTime}]`);
     const { startSec, endSec } = resolveTimeRange(startTime, endTime);
-    const windowSec = endSec - startSec;
+    const S = this.naming.stepSeconds;
     const sel = this.sel(runId);
 
     const statsToFetch = ["min", "p50", "p90", "p95", "max", "avg"] as const;
     const results = await Promise.all(
       statsToFetch.map(async (stat) => {
-        // iteration_duration stats are already in ms (unlike http_req_duration which is seconds)
-        // avg across instance_ids, last_over_time to handle stale data
         const name = `${this.metric("iteration_duration")}_${stat}`;
-        const res = await this.client.query(`avg(last_over_time(${name}${sel}[${windowSec}s]))`, endSec);
-        const val = res.length ? parseFloat(res[0].value[1]) : 0;
+        const agg = (stat === "min") ? "min" : (stat === "avg") ? "avg" : "max";
+        const range = await this.client.queryRange(`${agg}(${name}${sel})`, startSec, endSec, S);
+        const last = range.flatMap((s) => s.values).reverse().find(([, v]) => parseFloat(v) > 0);
+        const val = last ? this.toMs(parseFloat(last[1])) : 0;
         return { stat, val };
       })
     );

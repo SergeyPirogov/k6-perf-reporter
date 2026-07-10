@@ -61,7 +61,9 @@ export function extractHttpReqDurationFromData(
   }
 
   const values = data.map((r) => r._value).sort((a, b) => a - b);
-  const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+  const avg = data[0]._avg !== undefined
+    ? data.reduce((sum, r) => sum + (r._avg ?? 0), 0) / data.length
+    : values.reduce((sum, val) => sum + val, 0) / values.length;
   const min = values[0];
   const max = values[values.length - 1];
   const med = percentile(values, 50);
@@ -83,7 +85,9 @@ export function extractHttpReqDurationSuccessFromData(
   }
 
   const values = successData.map((r) => r._value).sort((a, b) => a - b);
-  const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+  const avg = successData[0]._avg !== undefined
+    ? successData.reduce((sum, r) => sum + (r._avg ?? 0), 0) / successData.length
+    : values.reduce((sum, val) => sum + val, 0) / values.length;
   const min = values[0];
   const max = values[values.length - 1];
   const med = percentile(values, 50);
@@ -277,12 +281,12 @@ export function extractRequestsFromData(
 
   // Build duration map from httpReqDurationData (keyed by method+url+status, filtered to success)
   const successDurations = httpReqDurationData.filter((r) => r.status < 400);
-  const durationMap = new Map<string, { durations: number[]; method: string; url: string; status: number; count: number }>();
+  const durationMap = new Map<string, { durations: number[]; avg?: number; method: string; url: string; status: number; count: number }>();
 
   successDurations.forEach((r) => {
     const key = `${r.method} ${r.url} ${r.status}`;
     if (!durationMap.has(key)) {
-      durationMap.set(key, { durations: [], method: r.method, url: r.url, status: r.status, count: 0 });
+      durationMap.set(key, { durations: [], avg: r._avg, method: r.method, url: r.url, status: r.status, count: 0 });
     }
     const entry = durationMap.get(key)!;
     entry.durations.push(r._value);
@@ -294,7 +298,7 @@ export function extractRequestsFromData(
     .map((data) => {
       const sorted = data.durations.sort((a, b) => a - b);
       const min = sorted[0];
-      const avg = data.durations.reduce((sum, val) => sum + val, 0) / data.durations.length;
+      const avg = data.avg !== undefined ? data.avg : data.durations.reduce((sum, val) => sum + val, 0) / data.durations.length;
       const p95 = percentile(sorted, 95);
 
       const methodUrlKey = `${data.method} ${data.url}`;

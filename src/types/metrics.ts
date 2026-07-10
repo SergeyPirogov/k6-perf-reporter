@@ -136,6 +136,7 @@ export interface HttpReqsRow {
 
 export interface HttpReqDurationRow {
   _value: number;
+  _avg?: number;
   url: string;
   method: string;
   status: number;
