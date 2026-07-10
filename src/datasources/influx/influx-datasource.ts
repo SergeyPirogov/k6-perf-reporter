@@ -1,7 +1,17 @@
 import { InfluxClient } from "./influx-client";
 import { InfluxConfig } from "../../config";
 import { logger } from "../../logger";
-import { percentile } from "../../metrics";
+import {
+  extractHttpReqsFromData,
+  extractHttpReqFailedFromData,
+  extractHttpReqDurationFromData,
+  extractHttpReqDurationSuccessFromData,
+  extractErrorResponsesFromData,
+  extractErrorRequestsFromData,
+  extractRequestsFromData,
+  extractRpsAggregatedFromData,
+  percentile,
+} from "../../metrics";
 import { DataSource } from "../datasource";
 import {
   HttpReqsRow,
@@ -14,6 +24,14 @@ import {
   IterationDurationMetric,
   ErrorResponsesTextMetric,
   ErrorResponseMetric,
+  HttpReqsMetric,
+  HttpReqFailedMetric,
+  HttpReqDurationMetric,
+  HttpReqDurationSuccessMetric,
+  ErrorResponsesMetric,
+  ErrorRequestsMetric,
+  RequestsMetric,
+  RpsAggregatedMetric,
 } from "../../types";
 
 export class InfluxDataSource implements DataSource {
@@ -25,11 +43,7 @@ export class InfluxDataSource implements DataSource {
     this.config = config;
   }
 
-  async fetchHttpReqsData(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<HttpReqsRow[]> {
+  private async fetchHttpReqsData(runId: string, startTime: string, endTime: string): Promise<HttpReqsRow[]> {
     logger.debug(`fetchHttpReqsData: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const query = `
@@ -53,11 +67,7 @@ export class InfluxDataSource implements DataSource {
     }));
   }
 
-  async fetchHttpReqDurationData(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<HttpReqDurationRow[]> {
+  private async fetchHttpReqDurationData(runId: string, startTime: string, endTime: string): Promise<HttpReqDurationRow[]> {
     logger.debug(`fetchHttpReqDurationData: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const query = `
@@ -80,11 +90,7 @@ export class InfluxDataSource implements DataSource {
     }));
   }
 
-  async calculateTestDuration(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<DurationMetric> {
+  async calculateTestDuration(runId: string, startTime: string, endTime: string): Promise<DurationMetric> {
     logger.debug(`calculateTestDuration: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const firstQuery = `
@@ -129,18 +135,10 @@ export class InfluxDataSource implements DataSource {
     const durationSeconds = (endTimeMs - startTimeMs) / 1000;
 
     logger.info(`calculateTestDuration: ${durationSeconds.toFixed(1)}s (${firstTime} -> ${lastTime})`);
-    return {
-      startTime: firstTime,
-      endTime: lastTime,
-      durationSeconds,
-    };
+    return { startTime: firstTime, endTime: lastTime, durationSeconds };
   }
 
-  async extractVus(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<VusMetric> {
+  async extractVus(runId: string, startTime: string, endTime: string): Promise<VusMetric> {
     logger.debug(`extractVus: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const query = `
@@ -166,11 +164,7 @@ export class InfluxDataSource implements DataSource {
     return { current: max, min, max };
   }
 
-  async extractVusMax(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<VusMaxMetric> {
+  async extractVusMax(runId: string, startTime: string, endTime: string): Promise<VusMaxMetric> {
     logger.debug(`extractVusMax: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const query = `
@@ -195,11 +189,7 @@ export class InfluxDataSource implements DataSource {
     return { min, max };
   }
 
-  async extractIterations(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<IterationsMetric> {
+  async extractIterations(runId: string, startTime: string, endTime: string): Promise<IterationsMetric> {
     logger.debug(`extractIterations: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const query = `
@@ -218,7 +208,6 @@ export class InfluxDataSource implements DataSource {
     }
 
     const total = results.length;
-
     const timeValues = results
       .map((r) => r._time)
       .filter((t) => t !== null && t !== undefined) as string[];
@@ -228,21 +217,16 @@ export class InfluxDataSource implements DataSource {
     }
 
     timeValues.sort();
-    const startTimeMs = new Date(timeValues[0]).getTime();
-    const endTimeMs = new Date(timeValues[timeValues.length - 1]).getTime();
-    const durationSeconds = (endTimeMs - startTimeMs) / 1000;
-
+    const startMs = new Date(timeValues[0]).getTime();
+    const endMs = new Date(timeValues[timeValues.length - 1]).getTime();
+    const durationSeconds = (endMs - startMs) / 1000;
     const rate = durationSeconds > 0 ? total / durationSeconds : 0;
 
     logger.info(`extractIterations: total=${total}, rate=${rate.toFixed(2)} iter/s`);
     return { total, rate };
   }
 
-  async extractChecks(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<ChecksMetric> {
+  async extractChecks(runId: string, startTime: string, endTime: string): Promise<ChecksMetric> {
     logger.debug(`extractChecks: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const query = `
@@ -269,11 +253,7 @@ export class InfluxDataSource implements DataSource {
     return { passes, fails, passRate };
   }
 
-  async extractIterationDuration(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<IterationDurationMetric> {
+  async extractIterationDuration(runId: string, startTime: string, endTime: string): Promise<IterationDurationMetric> {
     logger.debug(`extractIterationDuration: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const query = `
@@ -308,11 +288,7 @@ export class InfluxDataSource implements DataSource {
     return { avg, min, med, max, p90, p95 };
   }
 
-  async extractErrorResponsesText(
-    runId: string,
-    startTime: string,
-    endTime: string
-  ): Promise<ErrorResponsesTextMetric> {
+  async extractErrorResponsesText(runId: string, startTime: string, endTime: string): Promise<ErrorResponsesTextMetric> {
     logger.debug(`extractErrorResponsesText: runId=${runId}, range=[${startTime}, ${endTime}]`);
 
     const query = `
@@ -346,10 +322,60 @@ export class InfluxDataSource implements DataSource {
       }
     });
 
-    const responses = Array.from(groupedErrors.values())
-      .sort((a, b) => b.count - a.count);
-
+    const responses = Array.from(groupedErrors.values()).sort((a, b) => b.count - a.count);
     logger.info(`extractErrorResponsesText: ${results.length} rows grouped into ${responses.length} unique errors`);
     return { responses };
+  }
+
+  async extractHttpReqs(runId: string, startTime: string, endTime: string, ignoredStatusCodes: number[]): Promise<HttpReqsMetric> {
+    const [data, duration] = await Promise.all([
+      this.fetchHttpReqsData(runId, startTime, endTime),
+      this.calculateTestDuration(runId, startTime, endTime),
+    ]);
+    return extractHttpReqsFromData(data, duration);
+  }
+
+  async extractHttpReqFailed(runId: string, startTime: string, endTime: string, ignoredStatusCodes: number[]): Promise<HttpReqFailedMetric> {
+    const data = await this.fetchHttpReqsData(runId, startTime, endTime);
+    return extractHttpReqFailedFromData(data, ignoredStatusCodes);
+  }
+
+  async extractHttpReqDuration(runId: string, startTime: string, endTime: string): Promise<HttpReqDurationMetric> {
+    const data = await this.fetchHttpReqDurationData(runId, startTime, endTime);
+    return extractHttpReqDurationFromData(data);
+  }
+
+  async extractHttpReqDurationSuccess(runId: string, startTime: string, endTime: string): Promise<HttpReqDurationSuccessMetric> {
+    const data = await this.fetchHttpReqDurationData(runId, startTime, endTime);
+    return extractHttpReqDurationSuccessFromData(data);
+  }
+
+  async extractErrorResponses(runId: string, startTime: string, endTime: string, ignoredStatusCodes: number[]): Promise<ErrorResponsesMetric> {
+    const [data, duration] = await Promise.all([
+      this.fetchHttpReqsData(runId, startTime, endTime),
+      this.calculateTestDuration(runId, startTime, endTime),
+    ]);
+    return extractErrorResponsesFromData(data, duration, ignoredStatusCodes);
+  }
+
+  async extractErrorRequests(runId: string, startTime: string, endTime: string, ignoredStatusCodes: number[]): Promise<ErrorRequestsMetric> {
+    const [httpReqsData, httpReqDurationData] = await Promise.all([
+      this.fetchHttpReqsData(runId, startTime, endTime),
+      this.fetchHttpReqDurationData(runId, startTime, endTime),
+    ]);
+    return extractErrorRequestsFromData(httpReqsData, httpReqDurationData, ignoredStatusCodes);
+  }
+
+  async extractRequests(runId: string, startTime: string, endTime: string): Promise<RequestsMetric> {
+    const [httpReqsData, httpReqDurationData] = await Promise.all([
+      this.fetchHttpReqsData(runId, startTime, endTime),
+      this.fetchHttpReqDurationData(runId, startTime, endTime),
+    ]);
+    return extractRequestsFromData(httpReqsData, httpReqDurationData);
+  }
+
+  async extractRpsAggregated(runId: string, startTime: string, endTime: string): Promise<RpsAggregatedMetric> {
+    const data = await this.fetchHttpReqsData(runId, startTime, endTime);
+    return extractRpsAggregatedFromData(data);
   }
 }

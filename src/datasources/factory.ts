@@ -1,5 +1,6 @@
 import { DataSource } from "./datasource";
 import { InfluxDataSource } from "./influx";
+import { VictoriaMetricsDataSource } from "./victoriametrics";
 import { Config, DataSourceType } from "../config";
 import { logger } from "../logger";
 
@@ -9,6 +10,10 @@ export function createDataSource(type: DataSourceType, config: Config): DataSour
     case "influxdb": {
       const influxConfig = config.getInfluxConfig();
       return new InfluxDataSource(influxConfig);
+    }
+    case "victoriametrics": {
+      const vmConfig = config.getVictoriaMetricsConfig();
+      return new VictoriaMetricsDataSource(vmConfig);
     }
     case "prometheus":
       throw new Error("Prometheus datasource is not yet implemented");
