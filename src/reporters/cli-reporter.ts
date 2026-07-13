@@ -20,6 +20,9 @@ export class CliReporter {
     if (data.triggeredBy) {
       console.log(`Triggered by: ${data.triggeredBy}`);
     }
+    if (data.datasourceType) {
+      console.log(`Datasource: ${data.datasourceType}`);
+    }
 
     if (data.params && Object.keys(data.params).length > 0) {
       console.log("\nExecution Parameters:");

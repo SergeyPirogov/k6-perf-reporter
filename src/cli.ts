@@ -120,6 +120,8 @@ function main(): void {
           report.triggeredBy = triggeredBy;
         }
 
+        report.datasourceType = dsType;
+
         if (options.report) {
           const reporters = options.report.split(",").map((r: string) => r.trim());
           logger.info(`generate: using --report with reporters=[${reporters.join(", ")}]`);

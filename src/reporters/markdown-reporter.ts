@@ -28,6 +28,9 @@ export class MarkdownReporter {
     if (data.triggeredBy) {
       markdown += `- **Triggered by:** ${data.triggeredBy}\n`;
     }
+    if (data.datasourceType) {
+      markdown += `- **Datasource:** ${data.datasourceType}\n`;
+    }
     markdown += "\n";
 
     // Execution parameters
