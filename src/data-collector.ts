@@ -1,15 +1,5 @@
 import { DataSource } from "./datasources";
 import { ReporterResponse } from "./types";
-import {
-  extractHttpReqsFromData,
-  extractHttpReqFailedFromData,
-  extractHttpReqDurationFromData,
-  extractHttpReqDurationSuccessFromData,
-  extractErrorResponsesFromData,
-  extractErrorRequestsFromData,
-  extractRequestsFromData,
-  extractRpsAggregatedFromData,
-} from "./metrics";
 import { Loader } from "./loader";
 import { Cache } from "./cache";
 import { logger } from "./logger";
@@ -53,13 +43,11 @@ export class DataCollector {
       logger.debug("DataCollector.collect: cache miss, fetching from datasource");
     }
 
-    // Phase 1: Parallel bulk fetch — all independent queries at once
     this.loader.start("Fetching all data in parallel...");
     const fetchStart = Date.now();
-    logger.info("DataCollector.collect: starting parallel data fetch (9 queries)");
+    logger.info("DataCollector.collect: starting parallel data fetch");
+
     const [
-      httpReqsData,
-      httpReqDurationData,
       duration,
       vus,
       vusMax,
@@ -67,9 +55,15 @@ export class DataCollector {
       checks,
       iterationDuration,
       errorResponsesText,
+      httpReqs,
+      httpReqFailed,
+      httpReqDuration,
+      httpReqDurationSuccess,
+      errorResponses,
+      errorRequests,
+      requests,
+      rpsAggregated,
     ] = await Promise.all([
-      this.dataSource.fetchHttpReqsData(runId, startTime, endTime),
-      this.dataSource.fetchHttpReqDurationData(runId, startTime, endTime),
       this.dataSource.calculateTestDuration(runId, startTime, endTime),
       this.dataSource.extractVus(runId, startTime, endTime),
       this.dataSource.extractVusMax(runId, startTime, endTime),
@@ -77,35 +71,24 @@ export class DataCollector {
       this.dataSource.extractChecks(runId, startTime, endTime),
       this.dataSource.extractIterationDuration(runId, startTime, endTime),
       this.dataSource.extractErrorResponsesText(runId, startTime, endTime),
+      this.dataSource.extractHttpReqs(runId, startTime, endTime, ignoredStatusCodes),
+      this.dataSource.extractHttpReqFailed(runId, startTime, endTime, ignoredStatusCodes),
+      this.dataSource.extractHttpReqDuration(runId, startTime, endTime),
+      this.dataSource.extractHttpReqDurationSuccess(runId, startTime, endTime),
+      this.dataSource.extractErrorResponses(runId, startTime, endTime, ignoredStatusCodes),
+      this.dataSource.extractErrorRequests(runId, startTime, endTime, ignoredStatusCodes),
+      this.dataSource.extractRequests(runId, startTime, endTime),
+      this.dataSource.extractRpsAggregated(runId, startTime, endTime),
     ]);
+
     const fetchElapsed = Date.now() - fetchStart;
     logger.info(`DataCollector.collect: parallel fetch completed in ${fetchElapsed}ms`);
-    logger.debug(
-      `DataCollector.collect: fetched rows — httpReqs=${httpReqsData.length}, httpReqDuration=${httpReqDurationData.length}, ` +
-      `errorResponsesText=${errorResponsesText.responses.length}`
-    );
     this.loader.success(`Data fetching finished in ${this.formatElapsed(fetchElapsed)}`);
 
-    // Phase 2: Derive metrics from cached data (no additional queries)
-    this.loader.start("Computing metrics...");
-    logger.info("DataCollector.collect: computing derived metrics");
-
-    // Update iterations with duration info
-    if (iterations.total > 0 && duration.durationSeconds > 0) {
+    // Update iterations rate using authoritative duration if not already set
+    if (iterations.total > 0 && duration.durationSeconds > 0 && iterations.rate === 0) {
       iterations.rate = iterations.total / duration.durationSeconds;
     }
-
-    const httpReqs = extractHttpReqsFromData(httpReqsData, duration);
-    const httpReqFailed = extractHttpReqFailedFromData(httpReqsData, ignoredStatusCodes);
-    const httpReqDuration = extractHttpReqDurationFromData(httpReqDurationData);
-    const httpReqDurationSuccess = extractHttpReqDurationSuccessFromData(httpReqDurationData);
-    const errorResponses = extractErrorResponsesFromData(httpReqsData, duration, ignoredStatusCodes);
-    const errorRequests = extractErrorRequestsFromData(httpReqsData, httpReqDurationData, ignoredStatusCodes);
-    const requests = extractRequestsFromData(httpReqsData, httpReqDurationData);
-    const rpsAggregated = extractRpsAggregatedFromData(httpReqsData);
-
-    logger.info("DataCollector.collect: all metrics computed");
-    this.loader.success("Computed all metrics");
 
     const reportData = {
       ...(typeof data === "object" && data !== null ? data : {}),

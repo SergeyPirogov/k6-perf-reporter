@@ -1,13 +1,18 @@
 import fs from "fs";
 import path from "path";
 
-export type DataSourceType = "influxdb" | "prometheus";
+export type DataSourceType = "influxdb" | "prometheus" | "victoriametrics";
 
 export interface InfluxConfig {
   url: string;
   token: string;
   org: string;
   bucket: string;
+}
+
+export interface VictoriaMetricsConfig {
+  url: string;
+  token?: string;
 }
 
 export interface SlackConfig {
@@ -22,6 +27,7 @@ export interface CacheConfig {
 interface RawConfig {
   dataSource?: string;
   influx?: Record<string, unknown>;
+  victoriametrics?: Record<string, unknown>;
   slack?: Record<string, unknown>;
   cache?: Record<string, unknown>;
   ignoredStatusCodes?: unknown;
@@ -31,6 +37,7 @@ export class Config {
   private static instance: Config;
   private dataSourceType: DataSourceType;
   private rawInflux: Record<string, unknown> | undefined;
+  private rawVictoriaMetrics: Record<string, unknown> | undefined;
   private slackConfig: SlackConfig | null = null;
   private cacheConfig: CacheConfig;
   private configPath: string;
@@ -41,6 +48,7 @@ export class Config {
     const rawConfig = this.loadRawConfig();
     this.dataSourceType = this.parseDataSourceType(rawConfig.dataSource);
     this.rawInflux = rawConfig.influx;
+    this.rawVictoriaMetrics = rawConfig.victoriametrics;
     this.slackConfig = this.parseSlackConfig(rawConfig.slack);
     this.cacheConfig = this.parseCacheConfig(rawConfig.cache);
     this.ignoredStatusCodes = this.parseIgnoredStatusCodes(rawConfig.ignoredStatusCodes);
@@ -64,8 +72,8 @@ export class Config {
   private parseDataSourceType(raw: string | undefined): DataSourceType {
     const envValue = process.env["DATASOURCE"];
     const value = envValue || raw || "influxdb";
-    if (value !== "influxdb" && value !== "prometheus") {
-      throw new Error(`Unknown datasource type: '${value}'. Supported: influxdb, prometheus`);
+    if (value !== "influxdb" && value !== "prometheus" && value !== "victoriametrics") {
+      throw new Error(`Unknown datasource type: '${value}'. Supported: influxdb, prometheus, victoriametrics`);
     }
     return value;
   }
@@ -84,6 +92,24 @@ export class Config {
     }
 
     return { url, token, org, bucket };
+  }
+
+  getVictoriaMetricsConfig(): VictoriaMetricsConfig {
+    const url = this.resolveValue(
+      this.rawVictoriaMetrics?.url as string | undefined,
+      "VM_URL"
+    );
+    if (!url) {
+      throw new Error(
+        "VictoriaMetrics configuration is incomplete. " +
+        "Set VM_URL via environment variable or config file."
+      );
+    }
+    const token = this.resolveValue(
+      this.rawVictoriaMetrics?.token as string | undefined,
+      "VM_TOKEN"
+    );
+    return { url, token: token ?? undefined };
   }
 
   private parseSlackConfig(rawConfig: Record<string, unknown> | undefined): SlackConfig | null {

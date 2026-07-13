@@ -1,10 +1,21 @@
 {
+  "_comment_datasource": "Supported values: influxdb (default), victoriametrics, prometheus",
+  "dataSource": "influxdb",
+
+  "_comment_influx": "Used when dataSource = influxdb",
   "influx": {
     "url": "http://localhost:8086",
     "token": "${INFLUX_TOKEN}",
     "org": "my-org",
     "bucket": "k6"
   },
+
+  "_comment_vm": "Used when dataSource = victoriametrics",
+  "victoriametrics": {
+    "url": "http://localhost:8428",
+    "token": "${VM_TOKEN}"
+  },
+
   "slack": {
     "token": "${SLACK_TOKEN}",
     "channel": "#k6-reports"
