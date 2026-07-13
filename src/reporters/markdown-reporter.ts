@@ -25,6 +25,9 @@ export class MarkdownReporter {
     if (data.grafanaDashboardUrl) {
       markdown += `- **Dashboard:** [Grafana](${data.grafanaDashboardUrl})\n`;
     }
+    if (data.triggeredBy) {
+      markdown += `- **Triggered by:** ${data.triggeredBy}\n`;
+    }
     markdown += "\n";
 
     // Execution parameters

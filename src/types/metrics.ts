@@ -150,4 +150,5 @@ export interface ReporterResponse {
   params?: Record<string, string>;
   ignoredStatusCodes?: number[];
   grafanaDashboardUrl?: string;
+  triggeredBy?: string;
 }

@@ -75,6 +75,7 @@ function main(): void {
     .option("--no-cache", "Disable cache, always fetch fresh data")
     .option("-p, --params <params...>", "Execution parameters as key=value pairs (e.g. --params env=prod branch=main)")
     .option("--ignore-status-codes <codes>", "Comma-separated HTTP status codes to exclude from error metrics (e.g. 404,401)")
+    .option("--triggered-by <user>", "User or system that triggered the pipeline (env: TRIGGERED_BY)")
     .action(async (options) => {
       try {
         if (options.report && options.format !== "cli") {
@@ -112,6 +113,11 @@ function main(): void {
         const grafanaConfig = configInstance.getGrafanaConfig();
         if (grafanaConfig) {
           report.grafanaDashboardUrl = grafanaConfig.dashboardUrl;
+        }
+
+        const triggeredBy = options.triggeredBy || process.env["TRIGGERED_BY"];
+        if (triggeredBy) {
+          report.triggeredBy = triggeredBy;
         }
 
         if (options.report) {

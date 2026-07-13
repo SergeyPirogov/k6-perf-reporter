@@ -17,6 +17,9 @@ export class CliReporter {
     if (data.grafanaDashboardUrl) {
       console.log(`Dashboard: ${data.grafanaDashboardUrl}`);
     }
+    if (data.triggeredBy) {
+      console.log(`Triggered by: ${data.triggeredBy}`);
+    }
 
     if (data.params && Object.keys(data.params).length > 0) {
       console.log("\nExecution Parameters:");
