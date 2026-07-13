@@ -59,7 +59,7 @@ function main(): void {
   program
     .name("k6-reporter")
     .description("Generate CLI reports from k6 performance tests")
-    .version("1.6.0");
+    .version("1.9.0");
 
   program
     .command("generate")
@@ -107,6 +107,11 @@ function main(): void {
             params[entry.slice(0, idx)] = entry.slice(idx + 1);
           }
           report.params = params;
+        }
+
+        const grafanaConfig = configInstance.getGrafanaConfig();
+        if (grafanaConfig) {
+          report.grafanaDashboardUrl = grafanaConfig.dashboardUrl;
         }
 
         if (options.report) {

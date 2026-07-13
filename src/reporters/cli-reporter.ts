@@ -14,6 +14,9 @@ export class CliReporter {
     console.log(`Run ID: ${data.runId}`);
     console.log(`Start: ${data.startTime}`);
     console.log(`End: ${data.endTime}`);
+    if (data.grafanaDashboardUrl) {
+      console.log(`Dashboard: ${data.grafanaDashboardUrl}`);
+    }
 
     if (data.params && Object.keys(data.params).length > 0) {
       console.log("\nExecution Parameters:");

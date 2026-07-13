@@ -22,5 +22,9 @@
   },
   "cache": {
     "ttl": 3600
+  },
+  "_comment_grafana": "Optional Grafana dashboard link included in reports (env: GRAFANA_DASHBOARD_URL)",
+  "grafana": {
+    "dashboardUrl": "https://grafana.example.com/d/abc123/k6-dashboard"
   }
 }

@@ -83,7 +83,7 @@ export class SlackReporter {
         elements: [
           {
             type: "mrkdwn",
-            text: `*Run ID:* ${data.runId} | *Start:* ${formatDate(data.startTime)} | *End:* ${formatDate(data.endTime)}`,
+            text: `*Run ID:* ${data.runId} | *Start:* ${formatDate(data.startTime)} | *End:* ${formatDate(data.endTime)}${data.grafanaDashboardUrl ? ` | <${data.grafanaDashboardUrl}|Dashboard>` : ""}`,
           },
         ],
       },

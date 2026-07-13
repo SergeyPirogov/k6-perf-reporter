@@ -24,6 +24,10 @@ export interface CacheConfig {
   ttl: number;
 }
 
+export interface GrafanaConfig {
+  dashboardUrl: string;
+}
+
 interface RawConfig {
   dataSource?: string;
   influx?: Record<string, unknown>;
@@ -31,6 +35,7 @@ interface RawConfig {
   slack?: Record<string, unknown>;
   cache?: Record<string, unknown>;
   ignoredStatusCodes?: unknown;
+  grafana?: Record<string, unknown>;
 }
 
 export class Config {
@@ -42,6 +47,7 @@ export class Config {
   private cacheConfig: CacheConfig;
   private configPath: string;
   private ignoredStatusCodes: number[];
+  private grafanaConfig: GrafanaConfig | null = null;
 
   private constructor(configPath?: string) {
     this.configPath = configPath || ".config.json";
@@ -52,6 +58,7 @@ export class Config {
     this.slackConfig = this.parseSlackConfig(rawConfig.slack);
     this.cacheConfig = this.parseCacheConfig(rawConfig.cache);
     this.ignoredStatusCodes = this.parseIgnoredStatusCodes(rawConfig.ignoredStatusCodes);
+    this.grafanaConfig = this.parseGrafanaConfig(rawConfig.grafana);
   }
 
   private loadRawConfig(): RawConfig {
@@ -153,6 +160,14 @@ export class Config {
     return [];
   }
 
+  private parseGrafanaConfig(rawConfig: Record<string, unknown> | undefined): GrafanaConfig | null {
+    const dashboardUrl = this.resolveValue(rawConfig?.dashboardUrl as string | undefined, "GRAFANA_DASHBOARD_URL");
+    if (!dashboardUrl) {
+      return null;
+    }
+    return { dashboardUrl };
+  }
+
   private resolveValue(configValue: string | undefined, envVar: string): string | null {
     // First check environment variable (takes priority)
     const envValue = process.env[envVar];
@@ -166,6 +181,10 @@ export class Config {
 
   getIgnoredStatusCodes(): number[] {
     return this.ignoredStatusCodes;
+  }
+
+  getGrafanaConfig(): GrafanaConfig | null {
+    return this.grafanaConfig;
   }
 
   static getInstance(configPath?: string): Config {
