@@ -100,6 +100,14 @@ function main(): void {
           ignoredStatusCodes
         );
 
+        const reportData = report.data as Record<string, unknown>;
+        const httpReqs = reportData.httpReqs as { total: number } | undefined;
+        const iterations = reportData.iterations as { total: number } | undefined;
+        if ((!httpReqs || httpReqs.total === 0) && (!iterations || iterations.total === 0)) {
+          console.log(`Cannot extract data from datasource ${dsType}`);
+          return;
+        }
+
         if (options.params) {
           const params: Record<string, string> = {};
           for (const entry of options.params as string[]) {
