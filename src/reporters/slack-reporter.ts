@@ -83,7 +83,7 @@ export class SlackReporter {
         elements: [
           {
             type: "mrkdwn",
-            text: `*Run ID:* ${data.runId} | *Start:* ${formatDate(data.startTime)} | *End:* ${formatDate(data.endTime)}${data.grafanaDashboardUrl ? ` | <${data.grafanaDashboardUrl}|Dashboard>` : ""}${data.triggeredBy ? ` | *Triggered by:* ${data.triggeredBy}` : ""}${data.datasourceType ? ` | *Datasource:* ${data.datasourceType}` : ""}`,
+            text: `*Run ID:* ${data.runId}${data.grafanaDashboardUrl ? ` | <${data.grafanaDashboardUrl}|Dashboard>` : ""} | *Start:* ${formatDate(data.startTime)} | *End:* ${formatDate(data.endTime)}${data.triggeredBy ? ` | *Triggered by:* ${data.triggeredBy}` : ""}${data.datasourceType ? ` | *Datasource:* ${data.datasourceType}` : ""}`,
           },
         ],
       },

@@ -12,11 +12,11 @@ export class CliReporter {
   private printHeader(data: ReporterResponse): void {
     console.log("\n---");
     console.log(`Run ID: ${data.runId}`);
-    console.log(`Start: ${data.startTime}`);
-    console.log(`End: ${data.endTime}`);
     if (data.grafanaDashboardUrl) {
       console.log(`Dashboard: ${data.grafanaDashboardUrl}`);
     }
+    console.log(`Start: ${data.startTime}`);
+    console.log(`End: ${data.endTime}`);
     if (data.triggeredBy) {
       console.log(`Triggered by: ${data.triggeredBy}`);
     }

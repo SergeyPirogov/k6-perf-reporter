@@ -20,11 +20,11 @@ export class MarkdownReporter {
     // Header
     markdown += `# k6 Performance Test Report\n\n`;
     markdown += `- **Run ID:** ${data.runId}\n`;
-    markdown += `- **Start:** ${data.startTime}\n`;
-    markdown += `- **End:** ${data.endTime}\n`;
     if (data.grafanaDashboardUrl) {
       markdown += `- **Dashboard:** [Grafana](${data.grafanaDashboardUrl})\n`;
     }
+    markdown += `- **Start:** ${data.startTime}\n`;
+    markdown += `- **End:** ${data.endTime}\n`;
     if (data.triggeredBy) {
       markdown += `- **Triggered by:** ${data.triggeredBy}\n`;
     }
