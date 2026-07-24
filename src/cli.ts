@@ -59,7 +59,7 @@ function main(): void {
   program
     .name("k6-reporter")
     .description("Generate CLI reports from k6 performance tests")
-    .version("1.9.0");
+    .version("1.10.1");
 
   program
     .command("generate")
